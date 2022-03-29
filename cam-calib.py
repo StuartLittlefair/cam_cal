@@ -41,7 +41,7 @@ class Observation:
             self.tel_location = EarthLocation.of_site('Roque de los Muchachos')
             self.filt2ccd = dict(u='1', g='2', r='3', i='4', z='5')
             self.rootDataDir = '~/Astro/Data/photometry/hipercam'
-        else: raise ValueError('{} is not a valid instrument'.format(self.instrument))
+        else: raise ValueError(f"{self.instrument} is not a valid instrument")
         
         if tel_location:
             if tel_location in EarthLocation.get_site_names():
@@ -49,8 +49,8 @@ class Observation:
             elif isinstance(tel_location, EarthLocation):
                 self.tel_location = tel_location
             else:
-                raise ValueError('"{}" not a valid EarthLocation site name or '
-                                 'an EarthLocation object'.format(tel_location))
+                raise ValueError(f'"{tel_location}" not a valid EarthLocation site name or '
+                                 'an EarthLocation object')
         # set extinction coeffs and instrumental zeropoints
         self.set_default()
         #initialise observation dict
@@ -172,7 +172,7 @@ class Observation:
                     # add stitched data to apertures list
                     apertures.append(data)
             p, errs = self.__fit_atm_ext__(filt, apertures)
-            print('{}-band extinction: {:.3f} +- {:.3f}'.format(filt, p[0], errs[0]))
+            print(f"{filt}-band extinction: {p[0]:.3f} +- {errs[0]:.3f}")
             if plot:
                 _, ax = plt.subplots()
                 for idx, apdata in enumerate(apertures):
@@ -271,8 +271,7 @@ class Observation:
                 zp_dict['mean'][filt] = zp.value
                 zp_dict['err'][filt] = zp_err.value
                 zp_dict['airmass'] = np.mean(airmass)
-                print('{}-band zeropoint: {:.3f} +- {:.3f} (airmass = {:.2f})'
-                      ''.format(filt, zp, zp_err, np.mean(airmass)))
+                print(f"{filt}-band zeropoint: {zp:.3f} +- {zp_err:.3f} (airmass = {np.mean(airmass):.2f})")
         write = input("Set calculated zeropoints [y/n]? ")
         if not write or write=='y':
             for key, value in zp_dict.items():
@@ -367,7 +366,7 @@ class Observation:
         for filt in log.filters:
             out_dict = dict(data=dict(), fname=dict())
             ccd = self.filt2ccd[filt]
-            print('\n{}-band (CCD {})'.format(filt, ccd))
+            print(f"\n{filt}-band (CCD {ccd})")
             target_data_orig, target_mask = log.openData(ccd, '1', save=False,
                                                          mask=False)
             best_snr = 0
@@ -392,10 +391,10 @@ class Observation:
                 #     start, end = self.__get_eclipse__(t_t, diffFlux, width=1)
 
                 _, comp_mag_err = utils.flux_to_ABmag(comp_flux, comp_flux_err)
-                print('Aperture {} SNR = {:.2f}, Flux cal err = {:.3f} '
-                      'mags = {:.3f}% (airmass = {:.2f})'.format(ap, snr, comp_mag_err,
-                                              comp_flux_err*100/comp_flux, airmass))
-                # print('{} band, aperture {}, flux calibration uncertainty = {:.3f} mags = {:.3f}%'.format(filt, ap, comp_mag_err, comp_flux_err*100/comp_flux))
+                comp_err_percent = comp_flux_err*100/comp_flux
+                print("Aperture {ap} SNR = {snr:.2f}, Flux cal err = {comp_mag_err:.3f} "
+                      "mags = {comp_err_percent:.3f}% (airmass = {airmass:.2f})")
+
                 t_out = t_t[(t_t > start) & (t_t < end)]
                 exp_out = t_te[(t_t > start) & (t_t < end)]
                 calFlux_out = calFlux[(t_t > start) & (t_t < end)]
@@ -409,7 +408,7 @@ class Observation:
 
                 out = np.column_stack((bmjd_tdb, exp_out, calFlux_out,
                                        calFluxErr_out, weights, weights))
-                fname = '{}_{}_{}_ap{}_fc.dat'.format(target, log.run, filt, ap)
+                fname = "{target}_{log.run}_{filt}_ap{ap}_fc.dat"
                 fname = os.path.join(log.path, 'reduced', fname)
                 out_dict['data'][ap] = out
                 out_dict['fname'][ap] = fname
@@ -418,7 +417,7 @@ class Observation:
                     best_snr = snr
                     best_snr_ap = ap
                 
-            save_ap = input('Aperture to save [{}]: '.format(best_snr_ap))
+            save_ap = input(f"Aperture to save [{best_snr_ap}]: ")
             if not save_ap:
                 save_ap = best_snr_ap
             if not os.path.isdir(os.path.join(os.path.join(log.path, 'reduced'))):
@@ -451,37 +450,9 @@ if __name__ == "__main__":
                      err=dict(u=0.02, g=0.02, r=0.02, i=0.02, z=0.02))
     EG274_mags = dict(mean=dict(u=10.699, g=10.804, r=11.255, i=11.580, z=11.922),
                      err=dict(u=0.02, g=0.02, r=0.02, i=0.02, z=0.02))
-    
-    # obs.add_observation(name='PPMXL', logfiles=['ultracam/2022_03_04/run026.log'], obs_type='atm')
-    # obs.add_observation(name='CRTSJ0357', logfiles=['ultracam/2022_03_04/run020.log'], obs_type='atm')
-    # obs.get_atm_ex()
-    # obs.add_observation(name='GD71', logfiles=['ultracam/2022_03_04/run017.log'], obs_type='std', cal_mags=GD71_mags)
-    # obs.get_zeropoint()
-    # obs.add_observation(name='LTT2415', logfiles=['ultracam/2022_03_04/run024.log'], obs_type='std', cal_mags=LTT2415_mags)
-    # obs.get_zeropoint()
-    # obs.add_observation(name='EG274', logfiles=['ultracam/2022_03_04/run033.log'], obs_type='std', cal_mags=EG274_mags)
-    # obs.get_zeropoint()
-    # obs.add_observation(name='SDSSJ0624', logfiles=['ultracam/2022_03_04/run021.log'], obs_type='science')
-    # obs.calibrate_science('SDSSJ0624', eclipse=False)
 
-    # obs.clear()
-
-    # obs.add_observation(name='1716bx', logfiles=['ultracam/2022_03_05/run034.log'], obs_type='atm')
-    # # obs.add_observation(name='CRTSJ0357', logfiles=['ultracam/2022_03_05/run020.log'], obs_type='atm')
-    # obs.get_atm_ex()
-    # obs.add_observation(name='ZTFJ0752', logfiles=['ultracam/2022_03_05/run022.log'], obs_type='atm')
-    # obs.get_atm_ex()
-    # obs.add_observation(name='GD71', logfiles=['ultracam/2022_03_05/run017.log'], obs_type='std', cal_mags=GD71_mags)
-    # obs.get_zeropoint()
-    # obs.add_observation(name='EG274', logfiles=['ultracam/2022_03_05/run037.log'], obs_type='std', cal_mags=EG274_mags)
-    # obs.get_zeropoint()
-    # obs.add_observation(name='SDSSJ0624', logfiles=['ultracam/2022_03_05/run019.log'], obs_type='science')
-    # obs.calibrate_science('SDSSJ0624', eclipse=False)
-
-    # obs.clear()
 
     obs.add_observation(name='SDSSJ0624_atm', logfiles=['ultracam/2022_03_07/run030_atm.log'], obs_type='atm')
-    # obs.add_observation(name='CRTSJ0357', logfiles=['ultracam/2022_03_07/run020.log'], obs_type='atm')
     obs.get_atm_ex()
     obs.add_observation(name='ZTFJ1802', logfiles=['ultracam/2022_03_07/run040.log'], obs_type='atm')
     obs.get_atm_ex()
