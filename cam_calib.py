@@ -270,7 +270,7 @@ class Observation:
                           + self.observations['std'][name]['cal_mags']['err'][filt]**2)**0.5
                 zp_dict['mean'][filt] = zp.value
                 zp_dict['err'][filt] = zp_err.value
-                zp_dict['airmass'] = np.mean(airmass)
+                zp_dict['airmass'] = np.mean(airmass.value)
                 print(f"{filt}-band zeropoint: {zp:.3f} +- {zp_err:.3f} (airmass = {np.mean(airmass):.2f})")
         write = input("Set calculated zeropoints [y/n]? ")
         if not write or write=='y':
