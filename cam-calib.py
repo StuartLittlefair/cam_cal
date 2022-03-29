@@ -36,11 +36,11 @@ class Observation:
         if self.instrument=='ultracam':
             self.tel_location = EarthLocation.of_site('La Silla Observatory')
             self.filt2ccd = dict(u='3', g='2', r='1', i='1', z='1')
-            self.rootDataDir = '~/Astro/Data/photometry/ultracam'
+            self.rootDataDir = '/local/alex/backed_up_on_astro3/Data/photometry/ultracam'
         elif self.instrument=='hipercam':
             self.tel_location = EarthLocation.of_site('Roque de los Muchachos')
             self.filt2ccd = dict(u='1', g='2', r='3', i='4', z='5')
-            self.rootDataDir = '~/Astro/Data/photometry/hipercam'
+            self.rootDataDir = '/local/alex/backed_up_on_astro3/Data/photometry/hipercam'
         else: raise ValueError(f"{self.instrument} is not a valid instrument")
         
         if tel_location:
@@ -235,7 +235,7 @@ class Observation:
         """Calculate magnitude of star that would give 1 count/sec at the
            instrument if no atmosphere. Must have added a 'std' observation
            with calibrated magnitudes in the filter system used."""
-
+        # TODO: Either prevent looping through names or average zeropoints.
         # Need to check multiple logfiles for same target at different airmasses
         # check zip(target_names, logfiles) will always be the same length
 
@@ -341,7 +341,7 @@ class Observation:
 
     def calibrate_science(self, target_name, eclipse=True):
         """Flux calibrate the selected science target using the calibrated comparison stars."""
-    # TODO: implement supplying comparison star magnitude so many runs can be calibrated using one good run.
+        # TODO: implement supplying comparison star magnitude so many runs can be calibrated using one good run.
 
         log = Logfile(self.observations['science'][target_name]['logfiles'][0],
                       self.instrument, self.tel_location)
@@ -392,8 +392,8 @@ class Observation:
 
                 _, comp_mag_err = utils.flux_to_ABmag(comp_flux, comp_flux_err)
                 comp_err_percent = comp_flux_err*100/comp_flux
-                print("Aperture {ap} SNR = {snr:.2f}, Flux cal err = {comp_mag_err:.3f} "
-                      "mags = {comp_err_percent:.3f}% (airmass = {airmass:.2f})")
+                print(f"Aperture {ap} SNR = {snr:.2f}, Flux cal err = {comp_mag_err:.3f} "
+                      f"mags = {comp_err_percent:.3f}% (airmass = {airmass:.2f})")
 
                 t_out = t_t[(t_t > start) & (t_t < end)]
                 exp_out = t_te[(t_t > start) & (t_t < end)]
@@ -452,15 +452,15 @@ if __name__ == "__main__":
                      err=dict(u=0.02, g=0.02, r=0.02, i=0.02, z=0.02))
 
 
-    obs.add_observation(name='SDSSJ0624_atm', logfiles=['ultracam/2022_03_07/run030_atm.log'], obs_type='atm')
+    obs.add_observation(name='SDSSJ0624_atm', logfiles=['/local/alex/backed_up_on_astro3/Data/photometry/ultracam/2022_03_07/run030_atm.log'], obs_type='atm')
     obs.get_atm_ex()
-    obs.add_observation(name='ZTFJ1802', logfiles=['ultracam/2022_03_07/run040.log'], obs_type='atm')
+    obs.add_observation(name='ZTFJ1802', logfiles=['/local/alex/backed_up_on_astro3/Data/photometry/ultracam/2022_03_07/run040.log'], obs_type='atm')
     obs.get_atm_ex()
-    obs.add_observation(name='GD71', logfiles=['ultracam/2022_03_07/run019.log'], obs_type='std', cal_mags=GD71_mags)
+    obs.add_observation(name='GD71', logfiles=['/local/alex/backed_up_on_astro3/Data/photometry/ultracam/2022_03_07/run019.log'], obs_type='std', cal_mags=GD71_mags)
     obs.get_zeropoint()
-    obs.add_observation(name='GD108', logfiles=['ultracam/2022_03_07/run024.log'], obs_type='std', cal_mags=GD108_mags)
+    obs.add_observation(name='GD108', logfiles=['/local/alex/backed_up_on_astro3/Data/photometry/ultracam/2022_03_07/run024.log'], obs_type='std', cal_mags=GD108_mags)
     obs.get_zeropoint()
-    obs.add_observation(name='GD153', logfiles=['ultracam/2022_03_07/run033.log'], obs_type='std', cal_mags=GD153_mags)
+    obs.add_observation(name='GD153', logfiles=['/local/alex/backed_up_on_astro3/Data/photometry/ultracam/2022_03_07/run033.log'], obs_type='std', cal_mags=GD153_mags)
     obs.get_zeropoint()
-    obs.add_observation(name='SDSSJ0624', logfiles=['ultracam/2022_03_07/run030.log'], obs_type='science')
+    obs.add_observation(name='SDSSJ0624', logfiles=['/local/alex/backed_up_on_astro3/Data/photometry/ultracam/2022_03_07/run030.log'], obs_type='science')
     obs.calibrate_science('SDSSJ0624', eclipse=False)
