@@ -5,7 +5,7 @@ from astropy.io import fits
 import numpy.ma as ma
 from scipy.optimize import curve_fit, leastsq
 from scipy.interpolate import interp1d
-from astropy.coordinates import EarthLocation, SkyCoord, AltAz
+from astropy.coordinates import EarthLocation, SkyCoord, AltAz, name_resolve
 import astropy.units as u
 from astropy.time import Time
 from tkinter.filedialog import askopenfilename, askopenfilenames
@@ -62,27 +62,6 @@ def polysigclip(x, y, porder, sigma, iters):
     return mask, p
 
 
-class clickevent:
-
-    def __init__(self, list, fig):
-        self.list = list
-        self.cid = fig.canvas.mpl_connect('button_press_event', self)
-
-    def __call__(self, event):
-        if event.inaxes is not None and len(self.list) < 2 and not event.key == 'd':
-            self.list.append(event.xdata)
-            ax.axvline(event.xdata)
-            plt.draw()
-        elif event.inaxes is not None and len(self.list) > 0 and event.key == 'd':
-            idx = np.argmin(np.abs(self.list - event.xdata))
-            ax.axes.lines[-len(self.list)+idx].remove()
-            self.list.remove(self.list[idx])
-            plt.draw()
-        elif event.key == 'q' and len(self.list) == 2:
-            plt.close()
-
-
-
 class Logfile:
 
     def __init__(self, file, instrument, tel_location, target_coords=None, verbose=True):
@@ -137,37 +116,28 @@ class Logfile:
         return target, filters, coords
     
 
-    def getCoords(self, target=None, verbose=True):
-        if target:
-            try:
-                target_coords = SkyCoord.from_name(target)
-                if verbose:
-                    print('Found object\n')
-            except:
-                try:
-                    coord_match = re.search('J(\d\d)(\d\d)(\d\d\.\d(?:\d*)?)([+-])(\d\d)(\d\d)(\d\d(?:\.\d*)?)$', target)
-                    coord_str = coord_match.expand(r'\1:\2:\3\4\5:\6:\7')
-                    target_coords = SkyCoord(coord_str, unit=(u.hourangle, u.deg))
-                except:
-                    print("Can't find object in Simbad, enter object name manually")
-                    obj_sim = input('Enter Simbad object name '
-                                    '(to enter coordinates press <ENTER>): ')
-                    if obj_sim != '':
-                        target_coords = SkyCoord.from_name(obj_sim)
-                        print('Found object\n')
-                    else:
-                        coords = input('Enter coordinates: ')
-                        target_coords = SkyCoord(coords, unit=(u.hourangle, u.deg))
+    def manualInput(self):
+        obj_simbad = input('Enter Simbad object name '
+                        '(to enter coordinates press <ENTER>): ')
+        if obj_simbad != '':
+            target_coords = SkyCoord.from_name(obj_simbad, parse=True)
+            print('Found object\n')
         else:
-            obj_sim = input('Enter Simbad object name '
-                            '(to enter coordinates press <ENTER>): ')
-            if obj_sim != '':
-                target_coords = SkyCoord.from_name(obj_sim)
-                print('Found object\n')
-            else:
-                coords = input('Enter coordinates: ')
-                target_coords = SkyCoord(coords, unit=(u.hourangle, u.deg))
+            coords = input('Enter coordinates: ')
+            target_coords = SkyCoord(coords, unit=(u.hourangle, u.deg))
         return target_coords
+
+
+    def getCoords(self, target=None, verbose=True):
+             if target:
+                 try:
+                     target_coords = SkyCoord.from_name(target, parse=True)
+                 except name_resolve.NameResolveError:
+                     print(f"Can't find {target} in Simbad, enter object name manually")
+                     target_coords = self.manualInput()
+             else:
+                 target_coords = self.manualInput()
+             return target_coords
 
 
     def openData(self, ccd, ap, save=False, mask=True):
@@ -486,7 +456,7 @@ class Observation:
     def __cal_comp__(self, data, filt, coords):
         """Calibrate the mean flux of the comparison and it's uncertainty using
            the instrumental zeropoint and atmospheric extinction"""
-
+        # TODO: implement outputting/storing comparison magnitude.
         t, te, y, ye, _, _ = np.split(data, 6, axis=1)
         flux = y/(te*86400)
         flux_err = ye/(te*86400)
@@ -530,9 +500,9 @@ class Observation:
         end = mideclipse + (width * eclipsewidth)
         return start, end
     
-
     def calibrate_science(self, target_name, eclipse=True):
         """Flux calibrate the selected science target using the calibrated comparison stars."""
+    # TODO: implement supplying comparison star magnitude so many runs can be calibrated using one good run.
 
         log = Logfile(self.observations['science'][target_name]['logfiles'][0],
                       self.instrument, self.tel_location)
