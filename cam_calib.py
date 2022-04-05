@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 from hipercam import hlog
 import matplotlib.pyplot as plt
 from astropy.io import fits
@@ -32,17 +33,26 @@ class Observation:
         root = Tk()
         root.withdraw()
         self.instrument = instrument
+        format_dict = {'Name': 'string',
+                       'RA_hms': 'string',
+                       'DEC_dms': 'string',
+                       'Type': 'string',
+                       'SpType': 'string',
+                       'fname': 'string',
+                       'Variability': 'string'}
         # set instrument specific variables
         if self.instrument=='ultracam':
             self.tel_location = EarthLocation.of_site('La Silla Observatory')
-            self.filt2ccd = dict(u='3', g='2', r='1', i='1', z='1')
+            self.filt2ccd = {'u':'3', 'us':'3', 'g':'2', 'gs':'2', 'r':'1',
+                             'rs':'1', 'i':'1', 'is':'1', 'z':'1', 'zs':'1'}
             self.rootDataDir = '/local/alex/backed_up_on_astro3/Data/photometry/ultracam'
+            self.stds = pd.read_csv('cam_standards/ucam_flux_stds.csv', dtype=format_dict)
         elif self.instrument=='hipercam':
             self.tel_location = EarthLocation.of_site('Roque de los Muchachos')
-            self.filt2ccd = dict(u='1', g='2', r='3', i='4', z='5')
+            self.filt2ccd = {'us':'1', 'gs':'2', 'rs':'3', 'is':'4', 'zs':'5'}
             self.rootDataDir = '/local/alex/backed_up_on_astro3/Data/photometry/hipercam'
+            self.stds = pd.read_csv('cam_standards/hcam_flux_stds.csv', dtype=format_dict)
         else: raise ValueError(f"{self.instrument} is not a valid instrument")
-        
         if tel_location:
             if tel_location in EarthLocation.get_site_names():
                 self.tel_location = EarthLocation.of_site(tel_location)
@@ -60,16 +70,18 @@ class Observation:
     def set_default(self):
         """Sets default atmospheric extinctions and instrument zeropoints"""
 
-        self.atm_extinction = dict(mean=dict(u=0.48, g=0.24, r=0.18, i=0.15, z=0.10),
-                                   err=dict(u=0.05, g=0.05, r=0.05, i=0.05, z=0.05))
+        # self.atm_extinction = dict(mean=dict(u=0.48, g=0.24, r=0.18, i=0.15, z=0.10),
+        #                            err=dict(u=0.05, g=0.05, r=0.05, i=0.05, z=0.05))
+        self.atm_extinction = dict(mean={'us':0.48, 'gs':0.24, 'rs':0.18, 'is':0.15, 'zs':0.10},
+                                   err={'us':0.05, 'gs':0.05, 'rs':0.05, 'is':0.05, 'zs':0.05})
         if self.instrument=='ultracam':
-            self.zeropoint = dict(mean=dict(u=25.09, g=26.70, r=26.30, i=25.90, z=25.30),
-                                  err=dict(u=0.05, g=0.05, r=0.05, i=0.05, z=0.05),
-                                  airmass=dict(airmass=0))
+            self.zeropoint = dict(mean={'us':25.09, 'gs':26.70, 'rs':26.30, 'is':25.90, 'zs':25.30},
+                                  err={'us':0.05, 'gs':0.05, 'rs':0.05, 'is':0.05, 'zs':0.05},
+                                  airmass={'airmass':0})
         elif self.instrument=='hipercam':
-            self.zeropoint = dict(mean=dict(u=28.15, g=29.22, r=28.78, i=28.43, z=27.94),
-                                  err=dict(u=0.05, g=0.05, r=0.05, i=0.05, z=0.05),
-                                  airmass=dict(airmass=0))
+            self.zeropoint = dict(mean={'us':28.15, 'gs':29.22, 'rs':28.78, 'is':28.43, 'zs':27.94},
+                                  err={'us':0.05, 'gs':0.05, 'rs':0.05, 'is':0.05, 'zs':0.05},
+                                  airmass={'airmass':0})
 
 
     def add_observation(self, name=None, logfiles=None, obs_type='science', cal_mags=None):
@@ -92,10 +104,40 @@ class Observation:
         obs1, obs2, obs3 = dict(), dict(), dict()
         obs1['name'], obs1['logfiles'] = name, logfiles
         if obs_type == 'std':
-            obs1['cal_mags'] = cal_mags
+            obs1['cal_mags'] = self.match_std(cal_mags)
         obs2[name] = obs1
         obs3[obs_type] = obs2
         self.observations = merge(self.observations, obs3)
+
+    
+    def construct_dict(self, series):
+        mags_dict = dict(mean={'us':0, 'gs':0, 'rs':0, 'is':0, 'zs':0},
+                         err={'us':0.02, 'gs':0.02, 'rs':0.02, 'is':0.02, 'zs':0.02})
+        for filt in ['us', 'gs', 'rs', 'is', 'zs']:
+            mags_dict['mean'][filt] = float(series[filt])
+        return mags_dict
+
+
+    def match_std(self, standard):
+        if isinstance(standard, str):
+            if self.stds['Name'].isin([standard]).any():
+
+                return self.construct_dict(self.stds.loc[self.stds['Name'] == standard])
+            else:
+                try:
+                    standard = SkyCoord.from_name(standard, parse=True)
+                except name_resolve.NameResolveError:
+                    raise ValueError(f"{standard} doesn't match the list of standards and can't be resolved in SIMBAD.")
+
+        if isinstance(standard, SkyCoord):
+            catalog = SkyCoord(self.stds['RA']*u.deg, self.stds['DEC']*u.deg)
+            idx, d2d, d3d = standard.match_to_catalog_sky(catalog)
+            return self.construct_dict(self.stds.iloc[idx])
+
+        elif isinstance(standard, dict):
+            return standard
+
+        else: raise ValueError(f"'{standard}' is not a valid input.")
     
 
     def remove_observation(self, name, obs_type=None):
@@ -339,7 +381,7 @@ class Observation:
         return start, end
     
 
-    def calibrate_science(self, target_name, eclipse=True):
+    def calibrate_science(self, target_name, eclipse=None):
         """Flux calibrate the selected science target using the calibrated comparison stars."""
         # TODO: implement supplying comparison star magnitude so many runs can be calibrated using one good run.
 
@@ -351,7 +393,8 @@ class Observation:
                                                      mask=False)
         comp_data, comp_mask = log.openData(ccd, '2', save=False,
                                             mask=False)
-        master_mask = np.logical_and(target_mask, comp_mask)
+        negative_mask = ma.getmask(ma.masked_greater(comp_data[:,2], 0))
+        master_mask = np.logical_and.reduce((target_mask, comp_mask, negative_mask))
         target_data = target_data_orig[master_mask]
         comp_data = comp_data[master_mask]
         t_t, t_te, t_y, t_ye, _, _ = ((map(np.squeeze, np.split(target_data, 6, axis=1))))
@@ -359,7 +402,7 @@ class Observation:
         diffFlux = t_y / c_y
 
         if eclipse:
-            start, end = self.__get_eclipse__(t_t, diffFlux, width=1)
+            start, end = self.__get_eclipse__(t_t, diffFlux, width=eclipse)
         else:
             start, end = t_t[0]-0.0001, t_t[-1]+0.0001 
 
@@ -377,7 +420,8 @@ class Observation:
                     continue
                 comp_data, comp_mask = log.openData(ccd, ap, save=False,
                                                     mask=False)
-                master_mask = np.logical_and(target_mask, comp_mask)
+                negative_mask = ma.getmask(ma.masked_greater(comp_data[:,2], 0))
+                master_mask = np.logical_and.reduce((target_mask, comp_mask, negative_mask))
                 target_data = target_data_orig[master_mask]
                 comp_data = comp_data[master_mask]
                 t_t, t_te, t_y, t_ye, _, _ = ((map(np.squeeze, np.split(target_data, 6, axis=1))))
@@ -408,10 +452,11 @@ class Observation:
 
                 out = np.column_stack((bmjd_tdb, exp_out, calFlux_out,
                                        calFluxErr_out, weights, weights))
-                fname = "{target}_{log.run}_{filt}_ap{ap}_fc.dat"
+                fname = f"{target}_{log.run}_{filt}_ap{ap}_fc.dat"
                 fname = os.path.join(log.path, 'reduced', fname)
                 out_dict['data'][ap] = out
                 out_dict['fname'][ap] = fname
+                
 
                 if snr > best_snr:
                     best_snr = snr
@@ -430,37 +475,12 @@ if __name__ == "__main__":
     # obs = Observation('hipercam')
     obs = Observation('ultracam')
     
-    GD108_mags = dict(mean=dict(u=13.198, g=13.328, r=13.772, i=14.099, z=14.431),
-                       err=dict(u=0.02, g=0.02, r=0.02, i=0.02, z=0.02))
-    SA100_280_mags = dict(mean=dict(u=13.147-0.06, g=12.000+0.0049, r=11.691-0.003, i=11.606-0.0003, z=11.605+0.0032),
-                          err=dict(u=0.02, g=0.02, r=0.02, i=0.02, z=0.02))
     Feige_67_mags = dict(mean=dict(u=11.0252, g=11.5116, r=12.0786, i=12.4567, z=13.4091),
                           err=dict(u=0.02, g=0.02, r=0.02, i=0.02, z=0.02))
-    EG131_mags = dict(mean=dict(u=12.228, g=12.2196, r=12.359, i=12.544, z=12.750),
-                          err=dict(u=0.02, g=0.02, r=0.02, i=0.02, z=0.02))
-    WD2309_mags = dict(mean=dict(u=12.395, g=12.812, r=13.323, i=13.733, z=14.079),
-                          err=dict(u=0.02, g=0.02, r=0.02, i=0.02, z=0.02))
-    Feige110_mags = dict(mean=dict(u=11.168, g=11.547, r=12.059, i=12.446, z=12.787),
-                          err=dict(u=0.02, g=0.02, r=0.02, i=0.02, z=0.02))
-    GD71_mags = dict(mean=dict(u=12.451, g=12.775, r=13.277, i=13.651, z=14.034),
-                     err=dict(u=0.02, g=0.02, r=0.02, i=0.02, z=0.02))
-    GD153_mags = dict(mean=dict(u=12.692, g=13.072, r=13.594, i=13.984, z=14.361),
-                     err=dict(u=0.02, g=0.02, r=0.02, i=0.02, z=0.02))
-    LTT2415_mags = dict(mean=dict(u=13.156, g=12.354, r=12.110, i=12.033, z=12.053),
-                     err=dict(u=0.02, g=0.02, r=0.02, i=0.02, z=0.02))
-    EG274_mags = dict(mean=dict(u=10.699, g=10.804, r=11.255, i=11.580, z=11.922),
-                     err=dict(u=0.02, g=0.02, r=0.02, i=0.02, z=0.02))
 
-
-    obs.add_observation(name='SDSSJ0624_atm', logfiles=['/local/alex/backed_up_on_astro3/Data/photometry/ultracam/2022_03_07/run030_atm.log'], obs_type='atm')
+    obs.add_observation(name='CXOUJ110926.4-650224', logfiles=['/local/alex/backed_up_on_astro3/Data/photometry/ultracam/2022_03_02/run010.log'], obs_type='atm')
     obs.get_atm_ex()
-    obs.add_observation(name='ZTFJ1802', logfiles=['/local/alex/backed_up_on_astro3/Data/photometry/ultracam/2022_03_07/run040.log'], obs_type='atm')
-    obs.get_atm_ex()
-    obs.add_observation(name='GD71', logfiles=['/local/alex/backed_up_on_astro3/Data/photometry/ultracam/2022_03_07/run019.log'], obs_type='std', cal_mags=GD71_mags)
+    obs.add_observation(name='GD153', logfiles=['/local/alex/backed_up_on_astro3/Data/photometry/ultracam/2022_03_02/run011.log'], obs_type='std', cal_mags='GD153')
     obs.get_zeropoint()
-    obs.add_observation(name='GD108', logfiles=['/local/alex/backed_up_on_astro3/Data/photometry/ultracam/2022_03_07/run024.log'], obs_type='std', cal_mags=GD108_mags)
-    obs.get_zeropoint()
-    obs.add_observation(name='GD153', logfiles=['/local/alex/backed_up_on_astro3/Data/photometry/ultracam/2022_03_07/run033.log'], obs_type='std', cal_mags=GD153_mags)
-    obs.get_zeropoint()
-    obs.add_observation(name='SDSSJ0624', logfiles=['/local/alex/backed_up_on_astro3/Data/photometry/ultracam/2022_03_07/run030.log'], obs_type='science')
-    obs.calibrate_science('SDSSJ0624', eclipse=False)
+    obs.add_observation(name='1712af', logfiles=['/local/alex/backed_up_on_astro3/Data/photometry/ultracam/2022_03_02/run015.log'], obs_type='science')
+    obs.calibrate_science('1712af', eclipse=1.5)

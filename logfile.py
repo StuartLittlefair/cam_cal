@@ -51,14 +51,15 @@ class Logfile:
         f = fits.open(os.path.join(self.path, self.run + '.hcm'))
         if self.instrument == 'ultracam':
             target = f[0].header['TARGET']
-            filters = re.findall(r"\w?\s?([ugriz])'", f[0].header['FILTERS'])
+            filters = re.findall(r"(Super)?\s?([ugriz])'", f[0].header['FILTERS'])
+            filters = [f'{x[1]}s' if 'Super' in filters[0] else f'{x[1]}' for x in filters]
             if target_coords:
                 coords = target_coords
             else:
                 coords = self.getCoords(target, verbose=verbose)
         elif self.instrument == 'hipercam':
             target = f[0].header['OBJECT']
-            filters = re.findall(r"([ugriz])s,?", f[0].header['FILTERS'])
+            filters = re.findall(r"([ugriz]s,?)", f[0].header['FILTERS'])
             coords_str = ' '.join([f[0].header['RA'], f[0].header['DEC']])
             coords = SkyCoord(coords_str, unit=(u.hourangle, u.deg))
         f.close()
