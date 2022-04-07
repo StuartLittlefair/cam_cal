@@ -472,15 +472,12 @@ class Observation:
 
 
 if __name__ == "__main__":
-    # obs = Observation('hipercam')
     obs = Observation('ultracam')
-    
-    Feige_67_mags = dict(mean=dict(u=11.0252, g=11.5116, r=12.0786, i=12.4567, z=13.4091),
-                          err=dict(u=0.02, g=0.02, r=0.02, i=0.02, z=0.02))
+    # obs = Observation('hipercam')
 
     obs.add_observation(name='CXOUJ110926.4-650224', logfiles=['/local/alex/backed_up_on_astro3/Data/photometry/ultracam/2022_03_02/run010.log'], obs_type='atm')
     obs.get_atm_ex()
     obs.add_observation(name='GD153', logfiles=['/local/alex/backed_up_on_astro3/Data/photometry/ultracam/2022_03_02/run011.log'], obs_type='std', cal_mags='GD153')
     obs.get_zeropoint()
-    obs.add_observation(name='1712af', logfiles=['/local/alex/backed_up_on_astro3/Data/photometry/ultracam/2022_03_02/run015.log'], obs_type='science')
+    obs.add_observation(name='1712af', logfiles=['/local/alex/backed_up_on_astro3/Data/photometry/ultracam/2022_03_02/run015_normal.log'], obs_type='science')
     obs.calibrate_science('1712af', eclipse=1.5)
