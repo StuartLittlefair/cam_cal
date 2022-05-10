@@ -2,7 +2,8 @@ import numpy as np
 import pandas as pd
 from hipercam import hlog
 import matplotlib.pyplot as plt
-from astropy.io import fits
+from astropy.table import Table, QTable
+from fits import write_FITS
 import numpy.ma as ma
 from scipy.optimize import curve_fit, leastsq
 from scipy.interpolate import interp1d
@@ -40,6 +41,7 @@ class Observation:
                        'SpType': 'string',
                        'fname': 'string',
                        'Variability': 'string'}
+        self.header_dict = dict()
         # set instrument specific variables
         if self.instrument=='ultracam':
             self.tel_location = EarthLocation.of_site('La Silla Observatory')
@@ -63,6 +65,7 @@ class Observation:
                                  'an EarthLocation object')
         # set extinction coeffs and instrumental zeropoints
         self.set_default()
+
         #initialise observation dict
         self.observations = dict.fromkeys(['science', 'std', 'atm'])
 
@@ -168,7 +171,8 @@ class Observation:
         """calulates atmospheric extinction from all apertures included in 'atm' logfiles.
            If two logfiles are of the same field then it will stich the runs together and fit as one.
            Apertures must be totally consistent between runs."""
-
+        #TODO: add theilslopes method
+        
         if 'atm' not in self.observations.keys():
             raise ValueError('No atmospheric extinction data added.')
         atm_targets = dict()
@@ -318,6 +322,8 @@ class Observation:
         if not write or write=='y':
             for key, value in zp_dict.items():
                 self.zeropoint[key] = value
+            self.standard = log.target
+            self.std_run = log.run
             print('Zeropoints set.\n')
         else:
             print('Keeping default zeropoints.\n')
@@ -337,18 +343,19 @@ class Observation:
         """Calibrate the mean flux of the comparison and it's uncertainty using
            the instrumental zeropoint and atmospheric extinction"""
         # TODO: implement outputting/storing comparison magnitude.
-        t, te, y, ye, _, _ = np.split(data, 6, axis=1)
+
+        t, te, y, ye, _, _ = data.T
         flux = y/(te*86400)
         flux_err = ye/(te*86400)
         t = Time(t, format='mjd', scale='tdb')
         airmass = self.airmass(t, coords)
+
         mag_i, mag_i_err = utils.flux_to_mag(flux, flux_err)
         mag_i0 = mag_i - (self.atm_extinction['mean'][filt] * airmass)
         mag_comp = mag_i0 + self.zeropoint['mean'][filt]
         mag_comp_err = self.__flux_cal_err__(airmass, mag_i_err, filt)
-        snr_comp = np.median(flux/flux_err)
         comp_flux, comp_flux_err = utils.magAB_to_flux(np.mean(mag_comp), np.mean(mag_comp_err))
-        return comp_flux, comp_flux_err, snr_comp, np.mean(airmass)
+        return comp_flux, comp_flux_err, np.mean(airmass)
     
 
     def __get_eclipse__(self, time, flux, width=1):
@@ -381,10 +388,14 @@ class Observation:
         return start, end
     
 
-    def calibrate_science(self, target_name, eclipse=None):
-        """Flux calibrate the selected science target using the calibrated comparison stars."""
-        # TODO: implement supplying comparison star magnitude so many runs can be calibrated using one good run.
+    # def write_FITS(self, fname, data_arrays, headers):
 
+
+
+    def calibrate_science(self, target_name, comp_mag=None, comp_mag_err=None, eclipse=None):
+        """Flux calibrate the selected science target using the calibrated comparison stars."""
+
+        data_arrays = dict()
         log = Logfile(self.observations['science'][target_name]['logfiles'][0],
                       self.instrument, self.tel_location)
         target = log.target.replace(' ', '_')
@@ -393,19 +404,17 @@ class Observation:
                                                      mask=False)
         comp_data, comp_mask = log.openData(ccd, '2', save=False,
                                             mask=False)
-        negative_mask = ma.getmask(ma.masked_greater(comp_data[:,2], 0))
-        master_mask = np.logical_and.reduce((target_mask, comp_mask, negative_mask))
-        target_data = target_data_orig[master_mask]
-        comp_data = comp_data[master_mask]
-        t_t, t_te, t_y, t_ye, _, _ = ((map(np.squeeze, np.split(target_data, 6, axis=1))))
-        _, _, c_y, c_ye, _, _ = ((map(np.squeeze, np.split(comp_data, 6, axis=1))))
+        target_data, comp_data = utils.mask_data(target_data_orig, target_mask, comp_data, comp_mask)
+        t_t, t_te, t_y, t_ye, _, _ = target_data.T
+        _, _, c_y, c_ye, _, _ = comp_data.T
         diffFlux = t_y / c_y
 
         if eclipse:
             start, end = self.__get_eclipse__(t_t, diffFlux, width=eclipse)
         else:
-            start, end = t_t[0]-0.0001, t_t[-1]+0.0001 
+            start, end = t_t[0]-0.0001, t_t[-1]+0.0001
 
+        data_arrays = dict(data=dict(), header=dict())
         for filt in log.filters:
             out_dict = dict(data=dict(), fname=dict())
             ccd = self.filt2ccd[filt]
@@ -418,31 +427,33 @@ class Observation:
 
                 if ap == '1':
                     continue
+                
+
                 comp_data, comp_mask = log.openData(ccd, ap, save=False,
                                                     mask=False)
-                negative_mask = ma.getmask(ma.masked_greater(comp_data[:,2], 0))
-                master_mask = np.logical_and.reduce((target_mask, comp_mask, negative_mask))
-                target_data = target_data_orig[master_mask]
-                comp_data = comp_data[master_mask]
-                t_t, t_te, t_y, t_ye, _, _ = ((map(np.squeeze, np.split(target_data, 6, axis=1))))
-                _, _, c_y, c_ye, _, _ = ((map(np.squeeze, np.split(comp_data, 6, axis=1))))
+                target_data, comp_data = utils.mask_data(target_data_orig, target_mask, comp_data, comp_mask)
+
+                t_t, t_te, t_y, t_ye, _, _ = target_data.T
+                _, _, c_y, c_ye, _, _ = comp_data.T
+                comp_snr = np.median(c_y/c_ye)
                 diffFlux = t_y / c_y
-                diffFluxErr = ((t_ye / t_y)**2 + (c_ye / c_y)**2)**0.5 * diffFlux
-                comp_flux, comp_flux_err, snr, airmass = self.__cal_comp__(comp_data, filt, log.target_coords)
+                diffFluxErr = ((t_ye / t_y)**2 + (c_ye / c_y)**2)**0.5 * np.abs(diffFlux)
+                
+                if comp_mag and comp_mag_err:
+                    comp_flux, comp_flux_err = utils.magAB_to_flux(comp_mag, comp_mag_err)
+                    airmass = 0.00
+                else:
+                    comp_flux, comp_flux_err, airmass = self.__cal_comp__(comp_data, filt, log.target_coords)
+
                 calFlux = diffFlux * comp_flux.value
                 calFluxErr = diffFluxErr * comp_flux.value
-                # if ap == '2' and filt == 'u':
-                #     start, end = self.__get_eclipse__(t_t, diffFlux, width=1)
 
                 _, comp_mag_err = utils.flux_to_ABmag(comp_flux, comp_flux_err)
                 comp_err_percent = comp_flux_err*100/comp_flux
-                print(f"Aperture {ap} SNR = {snr:.2f}, Flux cal err = {comp_mag_err:.3f} "
+                print(f"Aperture {ap} SNR = {comp_snr:.2f}, Flux cal err = {comp_mag_err:.3f} "
                       f"mags = {comp_err_percent:.3f}% (airmass = {airmass:.2f})")
 
-                t_out = t_t[(t_t > start) & (t_t < end)]
-                exp_out = t_te[(t_t > start) & (t_t < end)]
-                calFlux_out = calFlux[(t_t > start) & (t_t < end)]
-                calFluxErr_out = calFluxErr[(t_t > start) & (t_t < end)]
+                t_out, exp_out, calFlux_out, calFluxErr_out = utils.top_tail([t_t, t_te, calFlux, calFluxErr], t_t, start, end)
                 weights = np.ones(len(t_out))
                 bmjd_tdb = t_out + log.barycorr(t_out).value
 
@@ -453,31 +464,85 @@ class Observation:
                 out = np.column_stack((bmjd_tdb, exp_out, calFlux_out,
                                        calFluxErr_out, weights, weights))
                 fname = f"{target}_{log.run}_{filt}_ap{ap}_fc.dat"
-                fname = os.path.join(log.path, 'reduced', fname)
+                fname = os.path.join(log.path, 'reduced', target, fname)
                 out_dict['data'][ap] = out
                 out_dict['fname'][ap] = fname
                 
 
-                if snr > best_snr:
-                    best_snr = snr
+                if comp_snr > best_snr:
+                    best_snr = comp_snr
                     best_snr_ap = ap
                 
             save_ap = input(f"Aperture to save [{best_snr_ap}]: ")
             if not save_ap:
                 save_ap = best_snr_ap
-            if not os.path.isdir(os.path.join(os.path.join(log.path, 'reduced'))):
-                os.makedirs(os.path.join(os.path.join(log.path, 'reduced')))
-            np.savetxt(out_dict['fname'][save_ap], out_dict['data'][save_ap],
-                       fmt='%11.9f %9.4e %9.4e %9.4e %1.0f %1.0f')
+            hdr = dict(FILTER=filt,
+                       COMP_AP=save_ap,
+                       ATM_EX=self.atm_extinction['mean'][filt],
+                       ATM_EX_E=self.atm_extinction['err'][filt],
+                       ZP=self.zeropoint['mean'][filt],
+                       ZP_E=self.zeropoint['err'][filt])
+            if not os.path.isdir(os.path.join(log.path, 'reduced')):
+                os.makedirs(os.path.join(log.path, 'reduced'))
+            if not os.path.isdir(os.path.join(log.path, 'reduced', target)):
+                os.makedirs(os.path.join(log.path, 'reduced', target))
+            # np.savetxt(out_dict['fname'][save_ap], out_dict['data'][save_ap],
+            #            fmt='%11.9f %9.4e %9.4e %9.4e %1.0f %1.0f')
+            tab_data = Table(out_dict['data'][save_ap], names=('BMJD(TDB)', 'exp_time', 'flux', 'flux_err', 'weight', 'esubd'))
+            data_arrays['data'][filt] = tab_data
+            data_arrays['header'][filt] = hdr
+        t = Time(start, format='mjd', scale='tdb').ymdhms
+        if t[3] < 14:
+            night = f"{t[0]}-{t[1]}-{t[2]-1}"
+
+        header = dict(TARGET=target,
+                      RUN=log.run, FILTERS=", ".join(log.filters),
+                      NIGHT=night,
+                      INSTR=self.instrument,
+                      RA=log.target_coords.ra.deg,
+                      DEC=log.target_coords.dec.deg,
+                      STD_STAR=self.standard,
+                      STD_RUN=self.std_run,
+                      STD_AIRM=self.zeropoint['airmass'],
+                      ZP=", ".join([str(val) for val in list(self.zeropoint['mean'].values())]),
+                      ZP_E=", ".join([str(val) for val in list(self.zeropoint['err'].values())]),
+                      ATM_EX=", ".join([str(val) for val in list(self.atm_extinction['mean'].values())]),
+                      ATM_EX_E=", ".join([str(val) for val in list(self.atm_extinction['err'].values())])
+                      )
+        fname = f"{target}.fits"
+        fname = os.path.join(log.path, 'reduced', target, fname)
+        write_FITS(fname, data_arrays, header)
+        
+        
 
 
 if __name__ == "__main__":
     obs = Observation('ultracam')
     # obs = Observation('hipercam')
 
-    obs.add_observation(name='CXOUJ110926.4-650224', logfiles=['/local/alex/backed_up_on_astro3/Data/photometry/ultracam/2022_03_02/run010.log'], obs_type='atm')
+    obs.add_observation(name='ZTFJ1341_atm', logfiles=['/local/alex/backed_up_on_astro3/Data/photometry/ultracam/2021_01_22/run025_atm.log'], obs_type='atm')
+    obs.add_observation(name='ZTFJ1404_atm', logfiles=['/local/alex/backed_up_on_astro3/Data/photometry/ultracam/2021_01_22/run027_atm.log'], obs_type='atm')
     obs.get_atm_ex()
-    obs.add_observation(name='GD153', logfiles=['/local/alex/backed_up_on_astro3/Data/photometry/ultracam/2022_03_02/run011.log'], obs_type='std', cal_mags='GD153')
+    WD1225_006_mags = dict(mean={'us':15.357, 'gs':14.988, 'rs':15.022, 'is':15.135, 'zs':15.310},
+                           err={'us':0.02, 'gs':0.02, 'rs':0.02, 'is':0.02, 'zs':0.02})
+    obs.add_observation(name='WD1225+006', logfiles=['/local/alex/backed_up_on_astro3/Data/photometry/ultracam/2021_01_22/run029_1.8.log'], obs_type='std', cal_mags=WD1225_006_mags)
     obs.get_zeropoint()
-    obs.add_observation(name='1712af', logfiles=['/local/alex/backed_up_on_astro3/Data/photometry/ultracam/2022_03_02/run015_normal.log'], obs_type='science')
-    obs.calibrate_science('1712af', eclipse=1.5)
+    obs.add_observation(name='ZTFJ1022', logfiles=['/local/alex/backed_up_on_astro3/Data/photometry/ultracam/2021_01_22/run019_1.8.log'], obs_type='science')
+    obs.add_observation(name='ZTFJ1026', logfiles=['/local/alex/backed_up_on_astro3/Data/photometry/ultracam/2021_01_22/run022_1.8.log'], obs_type='science')
+    obs.add_observation(name='ZTFJ1341', logfiles=['/local/alex/backed_up_on_astro3/Data/photometry/ultracam/2021_01_22/run025_1.8.log'], obs_type='science')
+    obs.add_observation(name='ZTFJ1404', logfiles=['/local/alex/backed_up_on_astro3/Data/photometry/ultracam/2021_01_22/run027_1.8.log'], obs_type='science')
+    obs.calibrate_science('ZTFJ1022', eclipse=1.5)
+    obs.calibrate_science('ZTFJ1026', eclipse=1.5)
+    obs.calibrate_science('ZTFJ1341', eclipse=1.5)
+    obs.calibrate_science('ZTFJ1404', eclipse=1.5)
+
+    # obs.add_observation(name='ZTFJ0615_atm', logfiles=['/local/alex/backed_up_on_astro3/Data/photometry/ultracam/2021_03_06/run021_atm.log'], obs_type='atm')
+    # obs.get_atm_ex()
+    # WD0457_004_mags = dict(mean={'us':15.431, 'gs':15.174, 'rs':15.290, 'is':15.460, 'zs':15.695},
+    #                        err={'us':0.02, 'gs':0.02, 'rs':0.02, 'is':0.02, 'zs':0.02})
+    # obs.add_observation(name='WD0457-004', logfiles=['/local/alex/backed_up_on_astro3/Data/photometry/ultracam/2021_03_06/run014_1.8.log'], obs_type='std', cal_mags=WD0457_004_mags)
+    # # obs.get_zeropoint()
+    # # obs.add_observation(name='GD108', logfiles=['/local/alex/backed_up_on_astro3/Data/photometry/ultracam/2021_03_06/run023_1.8.log'], obs_type='std', cal_mags='GD108')
+    # obs.get_zeropoint()
+    # obs.add_observation(name='ZTFJ1022', logfiles=['/local/alex/backed_up_on_astro3/Data/photometry/ultracam/2021_03_06/run034_1.8.log'], obs_type='science')
+    # obs.calibrate_science('ZTFJ1022', eclipse=1.5)

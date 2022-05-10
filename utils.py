@@ -23,10 +23,26 @@ def magAB_to_flux(mag, mag_err=0):
     ABflux_err = mag_err * (np.log(10) / 2.5) * ABflux
     return ABflux, ABflux_err
 
+
 def flux_to_ABmag(flux, flux_err=0):
     ABmag = -2.5 * np.log10(flux.to_value(u.Jy)) + 8.90
     ABmagErr = (flux_err.value/flux.value) * (2.5 / np.log(10))
     return ABmag, ABmagErr
+
+
+def mask_data(t_data, t_mask, c_data, c_mask):
+    negative_mask = ma.getmask(ma.masked_greater(c_data[:,2], 0))
+    master_mask = np.logical_and.reduce((t_mask, c_mask, negative_mask))
+    target_data = t_data[master_mask]
+    comp_data = c_data[master_mask]
+    return target_data, comp_data
+
+
+def top_tail(arrays, index_array, lolim, uplim):
+        array = np.column_stack(arrays)
+        cut_array = array[(index_array > lolim) & (index_array < uplim)]
+        return [array.flatten() for array in np.split(cut_array, cut_array.shape[1], axis=1)]
+
 
 def clip(fit, x, y, sigma):
     std = np.std(y - fit(x))

@@ -23,7 +23,7 @@ class Logfile:
         self.logf = hlog.Hlog.rascii(self.logfile)
         self.apnames = self.logf.apnames.copy()
         if verbose:
-            print('Target = {}'.format(self.target))
+            print('\nTarget = {}'.format(self.target))
             print('Run = {}'.format(self.run))
             print('Filters = {}'.format(self.filters))
 
