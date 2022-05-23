@@ -29,25 +29,25 @@ scripts = [fname for fname in glob.glob(os.path.join('scripts', '*'))
            if os.path.basename(fname) != 'README.rst']
 
 setup(
-    name='cam-calib',
+    name='cam-cal',
     version='0.1.0',
     description="Python package for flux calibrating HiPERCAM and ULTRACAM light curves",
     long_description=readme + '\n\n' + history,
     author="Alex Brown",
     author_email='ajbrown2@shef.ac.uk',
-    url='https://github.com/Alex-J-Brown/cam-calib',
-    download_url='https://github.com/Alex-J-Brown/cam-calib/archive/v0.1.0.tar.gz',
+    url='https://github.com/Alex-J-Brown/cam-cal',
+    download_url='https://github.com/Alex-J-Brown/cam-cal/archive/v0.1.0.tar.gz',
     packages=[
-        'cam-calib'
+        'cam-cal'
     ],
-    package_dir={'cam-calib':
-                 'cam-calib'},
+    package_dir={'cam-cal':
+                 'cam-cal'},
     include_package_data=True,
     scripts=scripts,
     install_requires=requirements,
     license="MIT license",
     zip_safe=False,
-    keywords='cam-calib',
+    keywords='cam-cal',
     classifiers=[
         'Development Status :: 2 - Pre-Alpha',
         'Intended Audience :: Developers',
