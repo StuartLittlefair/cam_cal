@@ -43,17 +43,17 @@ def weight_proportion(scale, slope, t, t1, t2, t3 ,t4):
     return prop
 
 
-def scale_weights(chosen_proportion, slope, t, t1, t2, t3 ,t4):
+def scale_weights(chosen_proportion, slope, t, t1, t2, t3 ,t4, upper_limit):
     fn = lambda scale ,slope, t, t1, t2, t3 ,t4, chosen_proportion: weight_proportion(scale, slope, t, t1, t2, t3 ,t4) - chosen_proportion
-    res = least_squares(fn, x0=[5], args=[slope, t, t1, t2, t3 ,t4, chosen_proportion], method='trf', bounds=(0.1, 100))
+    res = least_squares(fn, x0=[5], args=[slope, t, t1, t2, t3 ,t4, chosen_proportion], method='trf', bounds=(0.1, upper_limit))
     return res.x
 
 
-def get_weights(data, t1, t2, t3, t4, slope):
+def get_weights(data, t1, t2, t3, t4, slope, upper_limit=100):
     t, exp, y, ye, _, esubd = data.T
     weightboost = in_eg_weights_boost(t, t1, t2, t3, t4, slope, 10)
     print('Scaling weights')
-    scale = scale_weights(0.333, slope, t, t1, t2, t3, t4)
+    scale = scale_weights(0.333, slope, t, t1, t2, t3, t4, upper_limit=upper_limit)
     print(f"Weights scaled by {float(scale):.2f}")
     print("Applying weights to light curves...")
     weight = in_eg_weights_boost(t, t1, t2, t3, t4, slope, scale)
