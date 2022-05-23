@@ -20,6 +20,8 @@ import heapq
 
 from logfile import Logfile
 import utils
+import times
+import weighting
 
 
 warnings.filterwarnings('error')
@@ -80,11 +82,11 @@ class Observation:
         if self.instrument=='ultracam':
             self.zeropoint = dict(mean={'us':25.09, 'gs':26.70, 'rs':26.30, 'is':25.90, 'zs':25.30},
                                   err={'us':0.05, 'gs':0.05, 'rs':0.05, 'is':0.05, 'zs':0.05},
-                                  airmass={'airmass':0})
+                                  airmass=0.0)
         elif self.instrument=='hipercam':
             self.zeropoint = dict(mean={'us':28.15, 'gs':29.22, 'rs':28.78, 'is':28.43, 'zs':27.94},
                                   err={'us':0.05, 'gs':0.05, 'rs':0.05, 'is':0.05, 'zs':0.05},
-                                  airmass={'airmass':0})
+                                  airmass=0.0)
 
 
     def add_observation(self, name=None, logfiles=None, obs_type='science', cal_mags=None):
@@ -339,7 +341,7 @@ class Observation:
         return mag_t_err
 
 
-    def __cal_comp__(self, data, filt, coords):
+    def cal_comp(self, data, filt, coords):
         """Calibrate the mean flux of the comparison and it's uncertainty using
            the instrumental zeropoint and atmospheric extinction"""
         # TODO: implement outputting/storing comparison magnitude.
@@ -356,44 +358,37 @@ class Observation:
         mag_comp_err = self.__flux_cal_err__(airmass, mag_i_err, filt)
         comp_flux, comp_flux_err = utils.magAB_to_flux(np.mean(mag_comp), np.mean(mag_comp_err))
         return comp_flux, comp_flux_err, np.mean(airmass)
-    
 
-    def __get_eclipse__(self, time, flux, width=1):
-        """Chop out width x eclipse_width either side of the middle of eclipse.
+
+    def get_eclipse(self, t1, t4, width=1):
+        """Give times required to chop out width x eclipsewidth either side of the middle of eclipse.
            width=1 gives the eclipse plus half the eclipse width either side."""
 
-        # half_flux = (np.max(flux) + np.min(flux)) / 2
-        half_flux = (np.median(heapq.nlargest(10, flux)) + np.median(heapq.nsmallest(10, flux))) / 2
-        a1 = flux.copy()
-        idx1 = np.nanargmin(np.abs(a1 - half_flux))
-        a1[idx1-4:idx1+5] = np.nan
-        idx2 = np.nanargmin(np.abs(a1 - half_flux))
-        print(half_flux, idx1, idx2)
-        fig, ax = plt.subplots()
-        ax.scatter(time, flux)
-        ax.scatter(time[idx1-4:idx1+5], flux[idx1-4:idx1+5])
-        ax.scatter(time[idx2-4:idx2+5], flux[idx2-4:idx2+5])
-        ax.scatter(time[idx1], flux[idx1])
-        ax.scatter(time[idx2], flux[idx2])
-        plt.show()
-        interp1 = interp1d(flux[idx1-4:idx1+5], time[idx1-4:idx1+5])
-        interp2 = interp1d(flux[idx2-4:idx2+5], time[idx2-4:idx2+5])
-        t1 = interp1(half_flux)
-        t2 = interp2(half_flux)
-        eclipsewidth = np.abs(t2-t1)
-        mideclipse = (t1 + t2) / 2
-        print(mideclipse)
-        start = mideclipse - (width * eclipsewidth)
-        end = mideclipse + (width * eclipsewidth)
+        eclipsewidth = t4 - t1
+        t0 = (t1 + t4) / 2
+        start = t0 - (width * eclipsewidth)
+        end = t0 + (width * eclipsewidth)
         return start, end
-    
 
-    # def write_FITS(self, fname, data_arrays, headers):
 
+    def diff_phot(self, log, ccd, ap, target_data, target_mask):
+        comp_data, comp_mask = log.openData(ccd, ap, save=False,
+                                            mask=False)
+        target, comp = utils.mask_data(target_data, target_mask, comp_data, comp_mask)
+
+        _, _, t_y, t_ye, _, _ = target.T
+        _, _, c_y, c_ye, _, _ = comp.T
+        comp_snr = np.median(c_y/c_ye)
+        diffFlux = t_y / c_y
+        diffFluxErr = ((t_ye / t_y)**2 + (c_ye / c_y)**2)**0.5 * np.abs(diffFlux)
+        return target, comp, diffFlux, diffFluxErr, comp_snr
 
 
     def calibrate_science(self, target_name, comp_mag=None, comp_mag_err=None, eclipse=None):
-        """Flux calibrate the selected science target using the calibrated comparison stars."""
+        """
+        Flux calibrate the selected science target using the calibrated comparison stars.
+
+        """
 
         data_arrays = dict()
         log = Logfile(self.observations['science'][target_name]['logfiles'][0],
@@ -402,15 +397,13 @@ class Observation:
         ccd = self.filt2ccd['g']
         target_data_orig, target_mask = log.openData(ccd, '1', save=False,
                                                      mask=False)
-        comp_data, comp_mask = log.openData(ccd, '2', save=False,
-                                            mask=False)
-        target_data, comp_data = utils.mask_data(target_data_orig, target_mask, comp_data, comp_mask)
-        t_t, t_te, t_y, t_ye, _, _ = target_data.T
-        _, _, c_y, c_ye, _, _ = comp_data.T
-        diffFlux = t_y / c_y
+        target_data, _, diffFlux, _, _ = self.diff_phot(log, ccd, '2', target_data_orig, target_mask)
+        t_t, t_te, _, _, _, _ = target_data.T
 
         if eclipse:
-            start, end = self.__get_eclipse__(t_t, diffFlux, width=eclipse)
+            t1, t2, t3, t4 = times.contact_points(t_t, diffFlux)
+            start, end = self.get_eclipse(t1, t4, width=eclipse)
+
         else:
             start, end = t_t[0]-0.0001, t_t[-1]+0.0001
 
@@ -427,23 +420,16 @@ class Observation:
 
                 if ap == '1':
                     continue
-                
 
-                comp_data, comp_mask = log.openData(ccd, ap, save=False,
-                                                    mask=False)
-                target_data, comp_data = utils.mask_data(target_data_orig, target_mask, comp_data, comp_mask)
+                target_data, comp_data, diffFlux, diffFluxErr, comp_snr = self.diff_phot(log, ccd, ap, target_data_orig, target_mask)
+                t_t, t_te, _, _, _, _ = target_data.T
 
-                t_t, t_te, t_y, t_ye, _, _ = target_data.T
-                _, _, c_y, c_ye, _, _ = comp_data.T
-                comp_snr = np.median(c_y/c_ye)
-                diffFlux = t_y / c_y
-                diffFluxErr = ((t_ye / t_y)**2 + (c_ye / c_y)**2)**0.5 * np.abs(diffFlux)
                 
                 if comp_mag and comp_mag_err:
                     comp_flux, comp_flux_err = utils.magAB_to_flux(comp_mag, comp_mag_err)
                     airmass = 0.00
                 else:
-                    comp_flux, comp_flux_err, airmass = self.__cal_comp__(comp_data, filt, log.target_coords)
+                    comp_flux, comp_flux_err, airmass = self.cal_comp(comp_data, filt, log.target_coords)
 
                 calFlux = diffFlux * comp_flux.value
                 calFluxErr = diffFluxErr * comp_flux.value
@@ -455,7 +441,8 @@ class Observation:
 
                 t_out, exp_out, calFlux_out, calFluxErr_out = utils.top_tail([t_t, t_te, calFlux, calFluxErr], t_t, start, end)
                 weights = np.ones(len(t_out))
-                bmjd_tdb = t_out + log.barycorr(t_out).value
+                bary_corr = log.barycorr(t_out).value
+                bmjd_tdb = t_out + bary_corr
 
                 _, ax = plt.subplots()
                 ax.scatter(bmjd_tdb, calFlux_out)
@@ -463,6 +450,8 @@ class Observation:
 
                 out = np.column_stack((bmjd_tdb, exp_out, calFlux_out,
                                        calFluxErr_out, weights, weights))
+                slope = 100000 / np.median(np.diff(bmjd_tdb * 86400))
+                out = weighting.get_weights(out, t1+bary_corr, t2+bary_corr, t3+bary_corr, t4+bary_corr, slope)
                 fname = f"{target}_{log.run}_{filt}_ap{ap}_fc.dat"
                 fname = os.path.join(log.path, 'reduced', target, fname)
                 out_dict['data'][ap] = out
@@ -482,12 +471,12 @@ class Observation:
                        ATM_EX_E=self.atm_extinction['err'][filt],
                        ZP=self.zeropoint['mean'][filt],
                        ZP_E=self.zeropoint['err'][filt])
+
             if not os.path.isdir(os.path.join(log.path, 'reduced')):
                 os.makedirs(os.path.join(log.path, 'reduced'))
             if not os.path.isdir(os.path.join(log.path, 'reduced', target)):
                 os.makedirs(os.path.join(log.path, 'reduced', target))
-            # np.savetxt(out_dict['fname'][save_ap], out_dict['data'][save_ap],
-            #            fmt='%11.9f %9.4e %9.4e %9.4e %1.0f %1.0f')
+
             tab_data = Table(out_dict['data'][save_ap], names=('BMJD(TDB)', 'exp_time', 'flux', 'flux_err', 'weight', 'esubd'))
             data_arrays['data'][filt] = tab_data
             data_arrays['header'][filt] = hdr
