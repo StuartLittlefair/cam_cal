@@ -45,7 +45,7 @@ def weight_proportion(scale, slope, t, t1, t2, t3 ,t4):
 
 def scale_weights(chosen_proportion, slope, t, t1, t2, t3 ,t4):
     fn = lambda scale ,slope, t, t1, t2, t3 ,t4, chosen_proportion: weight_proportion(scale, slope, t, t1, t2, t3 ,t4) - chosen_proportion
-    res = least_squares(fn, x0=[5], args=[slope, t, t1, t2, t3 ,t4, chosen_proportion], method='trf', bounds=(0.1, 1000))
+    res = least_squares(fn, x0=[5], args=[slope, t, t1, t2, t3 ,t4, chosen_proportion], method='trf', bounds=(0.1, 100))
     return res.x
 
 
