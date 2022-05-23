@@ -17,13 +17,14 @@ import re
 import warnings
 from mergedeep import merge
 import heapq
+from pkg_resources import resource_filename
 
 from logfile import Logfile
 import utils
 import times
 import weighting
 
-
+fpath = resource_filename('cam-cal', 'cam_standards/')
 warnings.filterwarnings('error')
 
 
@@ -50,12 +51,12 @@ class Observation:
             self.filt2ccd = {'u':'3', 'us':'3', 'g':'2', 'gs':'2', 'r':'1',
                              'rs':'1', 'i':'1', 'is':'1', 'z':'1', 'zs':'1'}
             self.rootDataDir = '/local/alex/backed_up_on_astro3/Data/photometry/ultracam'
-            self.stds = pd.read_csv('cam_standards/ucam_flux_stds.csv', dtype=format_dict)
+            self.stds = pd.read_csv(f"{fpath}ucam_flux_stds.csv", dtype=format_dict)
         elif self.instrument=='hipercam':
             self.tel_location = EarthLocation.of_site('Roque de los Muchachos')
             self.filt2ccd = {'us':'1', 'gs':'2', 'rs':'3', 'is':'4', 'zs':'5'}
             self.rootDataDir = '/local/alex/backed_up_on_astro3/Data/photometry/hipercam'
-            self.stds = pd.read_csv('cam_standards/hcam_flux_stds.csv', dtype=format_dict)
+            self.stds = pd.read_csv(f"{fpath}hcam_flux_stds.csv", dtype=format_dict)
         else: raise ValueError(f"{self.instrument} is not a valid instrument")
         if tel_location:
             if tel_location in EarthLocation.get_site_names():
@@ -501,36 +502,3 @@ class Observation:
         fname = f"{target}.fits"
         fname = os.path.join(log.path, 'reduced', target, fname)
         write_FITS(fname, data_arrays, header)
-        
-        
-
-
-if __name__ == "__main__":
-    obs = Observation('ultracam')
-
-    obs.add_observation(name='ZTFJ1341_atm', logfiles=['/local/alex/backed_up_on_astro3/Data/photometry/ultracam/2021_01_22/run025_atm.log'], obs_type='atm')
-    obs.add_observation(name='ZTFJ1404_atm', logfiles=['/local/alex/backed_up_on_astro3/Data/photometry/ultracam/2021_01_22/run027_atm.log'], obs_type='atm')
-    obs.get_atm_ex()
-    WD1225_006_mags = dict(mean={'us':15.357, 'gs':14.988, 'rs':15.022, 'is':15.135, 'zs':15.310},
-                           err={'us':0.02, 'gs':0.02, 'rs':0.02, 'is':0.02, 'zs':0.02})
-    obs.add_observation(name='WD1225+006', logfiles=['/local/alex/backed_up_on_astro3/Data/photometry/ultracam/2021_01_22/run029_1.8.log'], obs_type='std', cal_mags=WD1225_006_mags)
-    obs.get_zeropoint()
-    obs.add_observation(name='ZTFJ1022', logfiles=['/local/alex/backed_up_on_astro3/Data/photometry/ultracam/2021_01_22/run019_1.8.log'], obs_type='science')
-    obs.add_observation(name='ZTFJ1026', logfiles=['/local/alex/backed_up_on_astro3/Data/photometry/ultracam/2021_01_22/run022_1.8.log'], obs_type='science')
-    obs.add_observation(name='ZTFJ1341', logfiles=['/local/alex/backed_up_on_astro3/Data/photometry/ultracam/2021_01_22/run025_1.8.log'], obs_type='science')
-    obs.add_observation(name='ZTFJ1404', logfiles=['/local/alex/backed_up_on_astro3/Data/photometry/ultracam/2021_01_22/run027_1.8.log'], obs_type='science')
-    obs.calibrate_science('ZTFJ1022', eclipse=1.5)
-    obs.calibrate_science('ZTFJ1026', eclipse=1.5)
-    obs.calibrate_science('ZTFJ1341', eclipse=1.5)
-    obs.calibrate_science('ZTFJ1404', eclipse=1.5)
-
-    # obs.add_observation(name='ZTFJ0615_atm', logfiles=['/local/alex/backed_up_on_astro3/Data/photometry/ultracam/2021_03_06/run021_atm.log'], obs_type='atm')
-    # obs.get_atm_ex()
-    # WD0457_004_mags = dict(mean={'us':15.431, 'gs':15.174, 'rs':15.290, 'is':15.460, 'zs':15.695},
-    #                        err={'us':0.02, 'gs':0.02, 'rs':0.02, 'is':0.02, 'zs':0.02})
-    # obs.add_observation(name='WD0457-004', logfiles=['/local/alex/backed_up_on_astro3/Data/photometry/ultracam/2021_03_06/run014_1.8.log'], obs_type='std', cal_mags=WD0457_004_mags)
-    # # obs.get_zeropoint()
-    # # obs.add_observation(name='GD108', logfiles=['/local/alex/backed_up_on_astro3/Data/photometry/ultracam/2021_03_06/run023_1.8.log'], obs_type='std', cal_mags='GD108')
-    # obs.get_zeropoint()
-    # obs.add_observation(name='ZTFJ1022', logfiles=['/local/alex/backed_up_on_astro3/Data/photometry/ultracam/2021_03_06/run034_1.8.log'], obs_type='science')
-    # obs.calibrate_science('ZTFJ1022', eclipse=1.5)
