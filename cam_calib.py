@@ -219,7 +219,7 @@ class Observation:
                     ap_info.append((target, ap))
                     # add stitched data to apertures list
                     apertures.append(data)
-            p, errs = self.__fit_atm_ext__(filt, apertures)
+            p, errs = self.fit_atm_ext(filt, apertures)
             print(f"{filt}-band extinction: {p[0]:.3f} +- {errs[0]:.3f}")
             if plot:
                 _, ax = plt.subplots()
@@ -240,7 +240,7 @@ class Observation:
             print('Keeping default atmospheric extinction.\n')
 
 
-    def __atm_chisq__(self, pars, apertures):
+    def atm_chisq(self, pars, apertures):
         """Computes combined chi (not squared) for every aperture"""
 
         k, *c = pars
@@ -254,10 +254,10 @@ class Observation:
         return diff
     
 
-    def __red_chisq__(self, pars, apertures):
+    def red_chisq(self, pars, apertures):
         """Reduced chi-squared given data and fit parameters"""
 
-        chisq = np.sum(self.__atm_chisq__(pars, apertures)**2)
+        chisq = np.sum(self.atm_chisq(pars, apertures)**2)
         ndata = 0
         for data in apertures:
             ndata += data.shape[0]
@@ -266,14 +266,14 @@ class Observation:
         return red_chisq.value
 
 
-    def __fit_atm_ext__(self, filt, apertures):
+    def fit_atm_ext(self, filt, apertures):
         """Fits atmospheric extinction coefficient to data in given apertures."""
         
         # add offset parameter for each aperture
         x0 = [self.atm_extinction['mean'][filt]] + [0 for i in apertures]
-        p, cov, _, _, _ = leastsq(self.__atm_chisq__, x0,
+        p, cov, _, _, _ = leastsq(self.atm_chisq, x0,
                                   full_output=True, args=(apertures))
-        red_chisq = self.__red_chisq__(p, apertures)
+        red_chisq = self.red_chisq(p, apertures)
         # scale variances with reduced chisqr and get std_err for fitted params
         errs = np.sqrt(np.diag(cov * red_chisq))
         return p, errs
@@ -331,7 +331,7 @@ class Observation:
             print('Keeping default zeropoints.\n')
 
     
-    def __flux_cal_err__(self, airmass_t, mag_i_err, filt):
+    def flux_cal_err(self, airmass_t, mag_i_err, filt):
         mstd_mstdi_var = (self.zeropoint['err'][filt]**2
                           - (self.zeropoint['airmass']
                              * self.atm_extinction['err'][filt])**2)
@@ -355,7 +355,7 @@ class Observation:
         mag_i, mag_i_err = utils.flux_to_mag(flux, flux_err)
         mag_i0 = mag_i - (self.atm_extinction['mean'][filt] * airmass)
         mag_comp = mag_i0 + self.zeropoint['mean'][filt]
-        mag_comp_err = self.__flux_cal_err__(airmass, mag_i_err, filt)
+        mag_comp_err = self.flux_cal_err(airmass, mag_i_err, filt)
         comp_flux, comp_flux_err = utils.magAB_to_flux(np.mean(mag_comp), np.mean(mag_comp_err))
         return comp_flux, comp_flux_err, np.mean(airmass)
 
@@ -456,12 +456,12 @@ class Observation:
                 fname = os.path.join(log.path, 'reduced', target, fname)
                 out_dict['data'][ap] = out
                 out_dict['fname'][ap] = fname
-                
+
 
                 if comp_snr > best_snr:
                     best_snr = comp_snr
                     best_snr_ap = ap
-                
+
             save_ap = input(f"Aperture to save [{best_snr_ap}]: ")
             if not save_ap:
                 save_ap = best_snr_ap
@@ -507,7 +507,6 @@ class Observation:
 
 if __name__ == "__main__":
     obs = Observation('ultracam')
-    # obs = Observation('hipercam')
 
     obs.add_observation(name='ZTFJ1341_atm', logfiles=['/local/alex/backed_up_on_astro3/Data/photometry/ultracam/2021_01_22/run025_atm.log'], obs_type='atm')
     obs.add_observation(name='ZTFJ1404_atm', logfiles=['/local/alex/backed_up_on_astro3/Data/photometry/ultracam/2021_01_22/run027_atm.log'], obs_type='atm')
