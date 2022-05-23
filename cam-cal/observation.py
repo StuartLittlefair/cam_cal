@@ -388,6 +388,7 @@ class Observation:
     def calibrate_science(self, target_name, comp_mag=None, comp_mag_err=None, eclipse=None):
         """
         Flux calibrate the selected science target using the calibrated comparison stars.
+        eclipse width can be specified.
 
         """
 
