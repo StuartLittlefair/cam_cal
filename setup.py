@@ -11,9 +11,10 @@ with open('README.rst') as readme_file:
 requirements = [
     'numpy',
     'scipy',
-    'astropy',
     'matplotlib',
     'pandas',
+    'astropy',
+    'mergedeep',
     'hipercam'
 ]
 
