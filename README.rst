@@ -24,7 +24,7 @@ The third-party requirements are:
 
 Installing with pip will handle all standard python packages required but the HiPERCAM pipeline will need a manual install
 
- pip install cam-calib
+ pip install cam_cal
 
 or if you don't have root access::
 
