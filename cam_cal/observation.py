@@ -20,7 +20,7 @@ from pkg_resources import resource_filename
 
 from cam_cal.fits import write_FITS
 from cam_cal.logfile import Logfile
-import cam_cal.utils as utiles
+import cam_cal.utils as utils
 import cam_cal.times as times
 import cam_cal.weighting as weighting
 
