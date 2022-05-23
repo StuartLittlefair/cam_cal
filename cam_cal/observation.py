@@ -3,7 +3,6 @@ import pandas as pd
 from hipercam import hlog
 import matplotlib.pyplot as plt
 from astropy.table import Table, QTable
-from fits import write_FITS
 import numpy.ma as ma
 from scipy.optimize import curve_fit, leastsq
 from scipy.interpolate import interp1d
@@ -19,12 +18,14 @@ from mergedeep import merge
 import heapq
 from pkg_resources import resource_filename
 
-from logfile import Logfile
-import utils
-import times
-import weighting
+from cam_cal.fits import write_FITS
+from cam_cal.logfile import Logfile
+import cam_cal.utils as utiles
+import cam_cal.times as times
+import cam_cal.weighting as weighting
 
-fpath = resource_filename('cam-cal', 'cam_standards/')
+fpath = resource_filename('cam_cal', 'cam_standards/')
+
 warnings.filterwarnings('error')
 
 

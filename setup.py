@@ -8,9 +8,6 @@ import os
 with open('README.rst') as readme_file:
     readme = readme_file.read()
 
-with open('HISTORY.rst') as history_file:
-    history = history_file.read()
-
 requirements = [
     'numpy',
     'scipy',
@@ -29,25 +26,25 @@ scripts = [fname for fname in glob.glob(os.path.join('scripts', '*'))
            if os.path.basename(fname) != 'README.rst']
 
 setup(
-    name='cam-cal',
+    name='cam_cal',
     version='0.1.0',
     description="Python package for flux calibrating HiPERCAM and ULTRACAM light curves",
-    long_description=readme + '\n\n' + history,
+    long_description=readme + '\n\n',
     author="Alex Brown",
     author_email='ajbrown2@shef.ac.uk',
-    url='https://github.com/Alex-J-Brown/cam-cal',
-    download_url='https://github.com/Alex-J-Brown/cam-cal/archive/v0.1.0.tar.gz',
+    url='https://github.com/Alex-J-Brown/cam_cal',
+    download_url='https://github.com/Alex-J-Brown/cam_cal/archive/v0.1.0.tar.gz',
     packages=[
-        'cam-cal'
+        'cam_cal'
     ],
-    package_dir={'cam-cal':
-                 'cam-cal'},
+    package_dir={'cam_cal':
+                 'cam_cal'},
     include_package_data=True,
     scripts=scripts,
     install_requires=requirements,
     license="MIT license",
     zip_safe=False,
-    keywords='cam-cal',
+    keywords='cam_cal',
     classifiers=[
         'Development Status :: 2 - Pre-Alpha',
         'Intended Audience :: Developers',
