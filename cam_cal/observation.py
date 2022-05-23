@@ -4,18 +4,17 @@ from hipercam import hlog
 import matplotlib.pyplot as plt
 from astropy.table import Table, QTable
 import numpy.ma as ma
-from scipy.optimize import curve_fit, leastsq
+from scipy.optimize import leastsq
 from scipy.interpolate import interp1d
 from astropy.coordinates import EarthLocation, SkyCoord, AltAz, name_resolve
 import astropy.units as u
 from astropy.time import Time
-from tkinter.filedialog import askopenfilename, askopenfilenames
+from tkinter.filedialog import askopenfilenames
 from tkinter import Tk
 import os
 import re
 import warnings
 from mergedeep import merge
-import heapq
 from pkg_resources import resource_filename
 
 from cam_cal.fits import write_FITS
@@ -51,12 +50,12 @@ class Observation:
             self.tel_location = EarthLocation.of_site('La Silla Observatory')
             self.filt2ccd = {'u':'3', 'us':'3', 'g':'2', 'gs':'2', 'r':'1',
                              'rs':'1', 'i':'1', 'is':'1', 'z':'1', 'zs':'1'}
-            self.rootDataDir = '/local/alex/backed_up_on_astro3/Data/photometry/ultracam'
+            self.rootDataDir = os.environ.get("UCAM_DATA", "/home")
             self.stds = pd.read_csv(f"{fpath}ucam_flux_stds.csv", dtype=format_dict)
         elif self.instrument=='hipercam':
             self.tel_location = EarthLocation.of_site('Roque de los Muchachos')
             self.filt2ccd = {'us':'1', 'gs':'2', 'rs':'3', 'is':'4', 'zs':'5'}
-            self.rootDataDir = '/local/alex/backed_up_on_astro3/Data/photometry/hipercam'
+            self.rootDataDir = os.environ.get("HCAM_DATA", "/home")
             self.stds = pd.read_csv(f"{fpath}hcam_flux_stds.csv", dtype=format_dict)
         else: raise ValueError(f"{self.instrument} is not a valid instrument")
         if tel_location:
@@ -91,6 +90,16 @@ class Observation:
                                   airmass=0.0)
 
 
+    def check_path(self, fname):
+        import errno
+        if not os.path.exists(fname):
+            fname = os.path.join(self.rootDataDir, fname)
+        if not os.path.exists(fname):
+            raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), fname)
+        return fname
+            
+
+
     def add_observation(self, name=None, logfiles=None, obs_type='science', cal_mags=None):
         """Adds logfiles and any other key info about a target/observation to
            the observations dictionary. Observation type is specified as 'science'
@@ -105,6 +114,9 @@ class Observation:
             logfiles = list(askopenfilenames(title='Select observation logfiles',
                                              initialdir=self.rootDataDir,
                                              filetypes=[("hcam logfile", ".log")]))
+        else:
+            logfiles = [self.check_path(logfile) for logfile in logfiles]
+
         if obs_type=='std' and not cal_mags:
             raise ValueError('If observations are of a flux standard then '
                              'calibrated magnitudes must be supplied')
@@ -412,7 +424,7 @@ class Observation:
 
         data_arrays = dict(data=dict(), header=dict())
         for filt in log.filters:
-            out_dict = dict(data=dict(), fname=dict())
+            out_dict = dict()
             ccd = self.filt2ccd[filt]
             print(f"\n{filt}-band (CCD {ccd})")
             target_data_orig, target_mask = log.openData(ccd, '1', save=False,
@@ -453,12 +465,9 @@ class Observation:
 
                 out = np.column_stack((bmjd_tdb, exp_out, calFlux_out,
                                        calFluxErr_out, weights, weights))
-                slope = 100000 / np.median(np.diff(bmjd_tdb * 86400))
+                slope = 150000 / np.median(np.diff(bmjd_tdb * 86400))
                 out = weighting.get_weights(out, t1+bary_corr, t2+bary_corr, t3+bary_corr, t4+bary_corr, slope)
-                fname = f"{target}_{log.run}_{filt}_ap{ap}_fc.dat"
-                fname = os.path.join(log.path, 'reduced', target, fname)
-                out_dict['data'][ap] = out
-                out_dict['fname'][ap] = fname
+                out_dict[ap] = out
 
 
                 if comp_snr > best_snr:
@@ -480,7 +489,7 @@ class Observation:
             if not os.path.isdir(os.path.join(log.path, 'reduced', target)):
                 os.makedirs(os.path.join(log.path, 'reduced', target))
 
-            tab_data = Table(out_dict['data'][save_ap], names=('BMJD(TDB)', 'exp_time', 'flux', 'flux_err', 'weight', 'esubd'))
+            tab_data = Table(out_dict[save_ap], names=('BMJD(TDB)', 'exp_time', 'flux', 'flux_err', 'weight', 'esubd'))
             data_arrays['data'][filt] = tab_data
             data_arrays['header'][filt] = hdr
         t = Time(start, format='mjd', scale='tdb').ymdhms
