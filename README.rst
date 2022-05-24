@@ -43,7 +43,10 @@ Use
 First import the Observation class and create an instance.
 
 .. code-block:: python
+
     from cam_cal.observation import Observation
 
     obs = Observation('ultracam')
+
+Observations or imaging runs are then added.
 
