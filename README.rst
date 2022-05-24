@@ -98,8 +98,8 @@ an equal portion of the total light curve. This is still experimental though so 
 .. code-block:: python
 
     obs.add_observation(name='SDSSJ1028', logfiles=['run022.log'], obs_type='science')
-    obs.calibrate_science('SDSSJ1028', eclipse=1.5)
+    obs.calibrate_science('SDSSJ1028', eclipse=1.5, lcurve=True)
     # eclipse=1.5 extracts 1.5x the eclipse width either side of the eclipse midpoint
     # i.e. the eclipse with an eclipse width's worth of out-of-eclipse data either side.
 
-This will output a FITS file with an extension for each CCD.
+This will output a FITS file with an extension for each CCD and has the option to output text files compatible with lcurve as well.

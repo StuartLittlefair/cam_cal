@@ -30,8 +30,10 @@ warnings.filterwarnings('error')
 
 
 class Observation:
-    """Class for reducing and flux calibrating ULTRACAM and HiPERCAM
-       eclipse light curves."""
+    """
+    Class for reducing and flux calibrating ULTRACAM and HiPERCAM
+    eclipse light curves.
+    """
 
 
     def __init__(self, instrument='ultracam', tel_location=None):
@@ -102,10 +104,12 @@ class Observation:
 
 
     def add_observation(self, name=None, logfiles=None, obs_type='science', cal_mags=None):
-        """Adds logfiles and any other key info about a target/observation to
-           the observations dictionary. Observation type is specified as 'science'
-           for science target data, 'std' for flux standard observations, and 'atm'
-           for long runs for measuring atmospheric extinction."""
+        """
+        Adds logfiles and any other key info about a target/observation to
+        the observations dictionary. Observation type is specified as 'science'
+        for science target data, 'std' for flux standard observations, and 'atm'
+        for long runs for measuring atmospheric extinction.
+        """
 
         if not obs_type:
             obs_type = input("'science', 'std', or 'atm'? ")
@@ -176,7 +180,9 @@ class Observation:
 
 
     def airmass(self, times, target_coords):
-        """Returns target airmass given an array of astropy times and the target position"""
+        """
+        Returns target airmass given an array of astropy times and the target position.
+        """
 
         frame = AltAz(obstime=times, location=self.tel_location)
         altazs = target_coords.transform_to(frame)
@@ -185,9 +191,11 @@ class Observation:
 
 
     def get_atm_ex(self, plot=True):
-        """calulates atmospheric extinction from all apertures included in 'atm' logfiles.
-           If two logfiles are of the same field then it will stich the runs together and fit as one.
-           Apertures must be totally consistent between runs."""
+        """
+        calulates atmospheric extinction from all apertures included in 'atm' logfiles.
+        If two logfiles are of the same field then it will stich the runs together and fit as one.
+        Apertures must be totally consistent between runs.
+        """
         #TODO: add theilslopes method
         
         if 'atm' not in self.observations.keys():
@@ -295,9 +303,11 @@ class Observation:
 
 
     def get_zeropoint(self):
-        """Calculate magnitude of star that would give 1 count/sec at the
-           instrument if no atmosphere. Must have added a 'std' observation
-           with calibrated magnitudes in the filter system used."""
+        """
+        Calculate magnitude of star that would give 1 count/sec at the
+        instrument if no atmosphere. Must have added a 'std' observation
+        with calibrated magnitudes in the filter system used.
+        """
         # TODO: Either prevent looping through names or average zeropoints.
         # Need to check multiple logfiles for same target at different airmasses
         # check zip(target_names, logfiles) will always be the same length
@@ -357,8 +367,10 @@ class Observation:
 
 
     def cal_comp(self, data, filt, coords):
-        """Calibrate the mean flux of the comparison and it's uncertainty using
-           the instrumental zeropoint and atmospheric extinction"""
+        """
+        Calibrate the mean flux of the comparison and it's uncertainty using
+        the instrumental zeropoint and atmospheric extinction.
+        """
         # TODO: implement outputting/storing comparison magnitude.
 
         t, te, y, ye, _, _ = data.T
@@ -376,8 +388,10 @@ class Observation:
 
 
     def get_eclipse(self, t1, t4, width=1):
-        """Give times required to chop out width x eclipsewidth either side of the middle of eclipse.
-           width=1 gives the eclipse plus half the eclipse width either side."""
+        """
+        Give times required to chop out width x eclipsewidth either side of the middle of eclipse.
+        width=1 gives the eclipse plus half the eclipse width either side.
+        """
 
         eclipsewidth = t4 - t1
         t0 = (t1 + t4) / 2
@@ -399,11 +413,10 @@ class Observation:
         return target, comp, diffFlux, diffFluxErr, comp_snr
 
 
-    def calibrate_science(self, target_name, comp_mag=None, comp_mag_err=None, eclipse=None):
+    def calibrate_science(self, target_name, comp_mag=None, comp_mag_err=None, eclipse=None, lcurve=False):
         """
         Flux calibrate the selected science target using the calibrated comparison stars.
         eclipse width can be specified.
-
         """
 
         data_arrays = dict()
@@ -520,5 +533,6 @@ class Observation:
         path = os.path.join(log.path, 'reduced', target)
         fname = os.path.join(path, fname)
         hdul.write(fname)
-        hdul.to_lcurve(filepath=path)
+        if lcurve:
+            hdul.to_lcurve(filepath=path)
         # write_FITS(fname, data_arrays, header)
