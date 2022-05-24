@@ -40,7 +40,10 @@ For ease of use, environment variables can be set to tell the package where to l
 Use
 ---
 
-First import the Observation class and create an instance.::
+First import the Observation class and create an instance.
 
+.. code-block:: python
     from cam_cal.observation import Observation
+
+    obs = Observation('ultracam')
 
