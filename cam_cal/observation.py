@@ -9,6 +9,7 @@ from scipy.interpolate import interp1d
 from astropy.coordinates import EarthLocation, SkyCoord, AltAz, name_resolve
 import astropy.units as u
 from astropy.time import Time
+import time
 from tkinter.filedialog import askopenfilenames
 from tkinter import Tk
 import os
@@ -17,7 +18,7 @@ import warnings
 from mergedeep import merge
 from pkg_resources import resource_filename
 
-from cam_cal.fits import write_FITS
+from cam_cal.fits import FITS
 from cam_cal.logfile import Logfile
 import cam_cal.utils as utils
 import cam_cal.times as times
@@ -509,8 +510,15 @@ class Observation:
                       ZP=", ".join([str(val) for val in list(self.zeropoint['mean'].values())]),
                       ZP_E=", ".join([str(val) for val in list(self.zeropoint['err'].values())]),
                       ATM_EX=", ".join([str(val) for val in list(self.atm_extinction['mean'].values())]),
-                      ATM_EX_E=", ".join([str(val) for val in list(self.atm_extinction['err'].values())])
+                      ATM_EX_E=", ".join([str(val) for val in list(self.atm_extinction['err'].values())]),
+                      TIME_CAL=time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime()),
+                      TIME_ID=int(time.time()*1000)
                       )
+        
+        hdul = FITS.create(data_arrays, header)
         fname = f"{target}.fits"
-        fname = os.path.join(log.path, 'reduced', target, fname)
-        write_FITS(fname, data_arrays, header)
+        path = os.path.join(log.path, 'reduced', target)
+        fname = os.path.join(path, fname)
+        hdul.write(fname)
+        hdul.to_lcurve(filepath=path)
+        # write_FITS(fname, data_arrays, header)
