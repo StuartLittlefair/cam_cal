@@ -55,7 +55,9 @@ An observation can have one of three obs_types: **'atm'**, **'std'**, or **'scie
 **atm** - The logfile from a reduction of a selection of stable stars over a decent airmass range.
 More than one logfile can be added for the one observation in case a target is observed more than once in a night (increasing the airmass range covered),
 However, aperture numbering must correspond exactly between both observations so stars can be matched across both runs.
+
 **std** - The logfile from the reduction of a flux standard.
+
 **science** - The logfile of the science data. The target must be aperture 1. It is wise to match the aperture radii with that of the flux standard in order to prevent systematic effects. 
 
 First add a run over a decent airmass range and fit the atmospheric extinction.
@@ -83,6 +85,12 @@ With a run added, the zeropoint can be calculated.
                         obs_type='std', cal_mags=WD1225_006_mags)
 
     obs.get_zeropoint()
+
+If no flux standard runs or runs suitable for measuring the atmospheric extinction are available then the previous two steps can be skipped.
+The code will then fall back to default values. For the atmospheric extinction alone this can still be ok, especially if your standard is taken at a similar airmass to the target you're calibrating.
+If you lack any observations of a flux standard though, the resulting calibration will likely be a bit dodgy. Maybe try setting the zeropoint from a flux standard and atmospheric extinction observation on a night close to the night your target was observed.
+If this is the case then the flux calibration uncertainties given by the code will be underestimated.
+
 
 Finally, our science data can be added and calibrated. If the target is a detached eclipsing binary then the data
 centred around the eclipse can be extracted and will automatically increase the weighting of the ingress/egress to constitute
