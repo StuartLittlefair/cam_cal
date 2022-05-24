@@ -60,7 +60,7 @@ However, aperture numbering must correspond exactly between both observations so
 
 **science** - The logfile of the science data. The target must be aperture 1. It is wise to match the aperture radii with that of the flux standard in order to prevent systematic effects. 
 
-First add a run over a decent airmass range and fit the atmospheric extinction.
+First add a run over a decent airmass range and fit the atmospheric extinction using the ``get_atm_ex`` method.
 
 .. code-block:: python
 
@@ -70,7 +70,7 @@ First add a run over a decent airmass range and fit the atmospheric extinction.
 Second, add a run on a flux standard. The calibrated magnitudes in the relevant filter system are required.
 These can be given either as a dictionary, or, if the standard is in the list of Gaia spectrophotometric standards,
 then either the name or an astropy Skycoord instance can be given.
-With a run added, the zeropoint can be calculated.
+With a run added, the zeropoint can be calculated using ``get_zeropoint``.
 
 .. code-block:: python
 
@@ -91,7 +91,6 @@ The code will then fall back to default values. For the atmospheric extinction a
 If you lack any observations of a flux standard though, the resulting calibration will likely be a bit dodgy. Maybe try setting the zeropoint from a flux standard and atmospheric extinction observation on a night close to the night your target was observed.
 If this is the case then the flux calibration uncertainties given by the code will be underestimated.
 
-
 Finally, our science data can be added and calibrated. If the target is a detached eclipsing binary then the data
 centred around the eclipse can be extracted and will automatically increase the weighting of the ingress/egress to constitute
 an equal portion of the total light curve. This is still experimental though so be careful.
@@ -102,3 +101,5 @@ an equal portion of the total light curve. This is still experimental though so 
     obs.calibrate_science('SDSSJ1028', eclipse=1.5)
     # eclipse=1.5 extracts 1.5x the eclipse width either side of the eclipse midpoint
     # i.e. the eclipse with an eclipse width's worth of out-of-eclipse data either side.
+
+This will output a FITS file with an extension for each CCD.
