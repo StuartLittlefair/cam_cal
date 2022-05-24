@@ -50,11 +50,11 @@ First import the ``Observation`` class and create an instance.
 
 Observations or imaging runs are then added with the ``add_observation`` method.
 These are given a name for reference, a list of hipercam logfiles, and and obs_type.
-An observation can have one of three obs_types: 'atm', 'std', or 'science'.
+An observation can have one of three obs_types: **'atm'**, **'std'**, or **'science'**.
 
 **atm** - The logfile from a reduction of a selection of stable stars over a decent airmass range.
-          More than one logfile can be added for the one observation in case a target is observed more than once in a night (increasing the airmass range covered),
-          However, aperture numbering must correspond exactly between both observations so stars can be matched across both runs.
+More than one logfile can be added for the one observation in case a target is observed more than once in a night (increasing the airmass range covered),
+However, aperture numbering must correspond exactly between both observations so stars can be matched across both runs.
 **std** - The logfile from the reduction of a flux standard.
 **science** - The logfile of the science data. The target must be aperture 1. It is wise to match the aperture radii with that of the flux standard in order to prevent systematic effects. 
 
@@ -62,7 +62,7 @@ First add a run over a decent airmass range and fit the atmospheric extinction.
 
 .. code-block:: python
 
-    obs.add_observation('SDSSJ0931_atm', logfiles=['2021_01_22/run025_atm.log'], obs_type='atm')
+    obs.add_observation('SDSSJ0931_atm', logfiles=['run025_atm.log'], obs_type='atm')
     obs.get_atm_ex(plot=True)
 
 Second, add a run on a flux standard. The calibrated magnitudes in the relevant filter system are required.
@@ -73,11 +73,14 @@ With a run added, the zeropoint can be calculated.
 .. code-block:: python
 
 
-    obs.add_observation(name='GD108', logfiles=['2021_01_22/run031.log'], obs_type='std', cal_mags='GD108')
+    obs.add_observation(name='GD108', logfiles=['run031.log'],
+                        obs_type='std', cal_mags='GD108')
 
     WD1225_006_mags = dict(mean={'us':15.357, 'gs':14.988, 'rs':15.022, 'is':15.135, 'zs':15.310},
                            err={'us':0.02, 'gs':0.02, 'rs':0.02, 'is':0.02, 'zs':0.02})
-    obs.add_observation(name='WD1225+006', logfiles=['2021_01_22/run029.log'], obs_type='std', cal_mags=WD1225_006_mags)
+
+    obs.add_observation(name='WD1225+006', logfiles=['run029.log'],
+                        obs_type='std', cal_mags=WD1225_006_mags)
 
     obs.get_zeropoint()
 
@@ -87,7 +90,7 @@ an equal portion of the total light curve. This is still experimental though so 
 
 .. code-block:: python
 
-    obs.add_observation(name='SDSSJ1028', logfiles=['2021_01_22/run022.log'], obs_type='science')
+    obs.add_observation(name='SDSSJ1028', logfiles=['run022.log'], obs_type='science')
     obs.calibrate_science('SDSSJ1028', eclipse=1.5)
     # eclipse=1.5 extracts 1.5x the eclipse width either side of the eclipse midpoint
     # i.e. the eclipse with an eclipse width's worth of out-of-eclipse data either side.
