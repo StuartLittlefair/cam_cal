@@ -35,3 +35,12 @@ For ease of use, environment variables can be set to tell the package where to l
  
  setenv HCAM_DATA /home/user/hipercam
  setenv UCAM_DATA /home/user/ultracam
+
+
+Use
+---
+
+First import the Observation class and create an instance.::
+
+    from cam_cal.observation import Observation
+
