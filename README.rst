@@ -24,12 +24,9 @@ The third-party requirements are:
 
 Installing with pip will handle all standard python packages required but the HiPERCAM pipeline will need a manual install.::
 
+ git clone https://github.com/Alex-J-Brown/cam_cal.git
  cd cam_cal
  pip install .
-
-or if you don't have root access::
-
- pip install --prefix=my_own_installation_directory cam-calib
 
 For ease of use, environment variables can be set to tell the package where to look for HiPERCAM or ULTRACAM data::
  
