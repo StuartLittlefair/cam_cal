@@ -190,7 +190,7 @@ class Observation:
         #TODO: add theilslopes method
         
         if 'atm' not in self.observations.keys():
-            raise ValueError('No atmospheric extinction data added.')
+            raise ValueError('No atmospheric extinction observations added.')
         atm_targets = dict()
         temp_extinctions = dict(mean=dict(), err=dict())
         # get logfiles of all added 'atm' observations
@@ -302,7 +302,7 @@ class Observation:
         # check zip(target_names, logfiles) will always be the same length
 
         if 'std' not in self.observations.keys():
-            raise ValueError('No atmospheric extinction data added.')
+            raise ValueError('No flux standard observations added.')
         zp_dict = dict(mean=dict(), err=dict())
         # get logfiles of all added 'std' observations
         logfiles = [self.observations['std'][name]['logfiles']
@@ -465,8 +465,9 @@ class Observation:
 
                 out = np.column_stack((bmjd_tdb, exp_out, calFlux_out,
                                        calFluxErr_out, weights, weights))
-                slope = 150000 / np.median(np.diff(bmjd_tdb * 86400))
-                out = weighting.get_weights(out, t1+bary_corr, t2+bary_corr, t3+bary_corr, t4+bary_corr, slope)
+                if eclipse:
+                    slope = 150000 / np.median(np.diff(bmjd_tdb * 86400))
+                    out = weighting.get_weights(out, t1+bary_corr, t2+bary_corr, t3+bary_corr, t4+bary_corr, slope)
                 out_dict[ap] = out
 
 
