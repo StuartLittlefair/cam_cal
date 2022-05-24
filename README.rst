@@ -22,7 +22,7 @@ The third-party requirements are:
 - `hipercam <https://github.com/HiPERCAM/hipercam>`_, the HiPERCAM data reduction pipeline;
 
 
-Installing with pip will handle all standard python packages required but the HiPERCAM pipeline will need a manual install.
+Installing with pip will handle all standard python packages required but the HiPERCAM pipeline will need a manual install.::
 
  cd cam_cal
  pip install .
