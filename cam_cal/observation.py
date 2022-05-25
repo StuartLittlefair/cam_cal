@@ -384,7 +384,6 @@ class Observation:
         mag_comp = mag_i0 + self.zeropoint['mean'][filt]
         mag_comp_err = self.flux_cal_err(airmass, mag_i_err, filt)
         comp_flux, comp_flux_err = utils.magAB_to_flux(np.mean(mag_comp), np.mean(mag_comp_err))
-        print(airmass.min(), airmass.max())
         return comp_flux, comp_flux_err, np.mean(airmass)
 
 
