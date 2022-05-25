@@ -384,6 +384,7 @@ class Observation:
         mag_comp = mag_i0 + self.zeropoint['mean'][filt]
         mag_comp_err = self.flux_cal_err(airmass, mag_i_err, filt)
         comp_flux, comp_flux_err = utils.magAB_to_flux(np.mean(mag_comp), np.mean(mag_comp_err))
+        print(airmass.min(), airmass.max())
         return comp_flux, comp_flux_err, np.mean(airmass)
 
 
@@ -438,7 +439,7 @@ class Observation:
 
         data_arrays = dict(data=dict(), header=dict())
         for filt in log.filters:
-            out_dict = dict()
+            out_dict = dict(data=dict(), fc_mag_err=dict(), fc_err=dict())
             ccd = self.filt2ccd[filt]
             print(f"\n{filt}-band (CCD {ccd})")
             target_data_orig, target_mask = log.openData(ccd, '1', save=False,
@@ -482,7 +483,9 @@ class Observation:
                 if eclipse:
                     slope = 150000 / np.median(np.diff(bmjd_tdb * 86400))
                     out = weighting.get_weights(out, t1+bary_corr, t2+bary_corr, t3+bary_corr, t4+bary_corr, slope)
-                out_dict[ap] = out
+                out_dict['data'][ap] = out
+                out_dict['fc_mag_err'][ap] = comp_mag_err
+                out_dict['fc_err'][ap] = comp_err_percent.value / 100
 
 
                 if comp_snr > best_snr:
@@ -494,17 +497,19 @@ class Observation:
                 save_ap = best_snr_ap
             hdr = dict(FILTER=filt,
                        COMP_AP=save_ap,
-                       ATM_EX=self.atm_extinction['mean'][filt],
-                       ATM_EX_E=self.atm_extinction['err'][filt],
-                       ZP=self.zeropoint['mean'][filt],
-                       ZP_E=self.zeropoint['err'][filt])
+                       FC_E=round(out_dict['fc_err'][save_ap], 5),
+                       FC_MAG_E=round(out_dict['fc_mag_err'][save_ap], 5),
+                       ATM_EX=round(self.atm_extinction['mean'][filt], 5),
+                       ATM_EX_E=round(self.atm_extinction['err'][filt], 5),
+                       ZP=round(self.zeropoint['mean'][filt], 5),
+                       ZP_E=round(self.zeropoint['err'][filt], 5))
 
             if not os.path.isdir(os.path.join(log.path, 'reduced')):
                 os.makedirs(os.path.join(log.path, 'reduced'))
             if not os.path.isdir(os.path.join(log.path, 'reduced', target)):
                 os.makedirs(os.path.join(log.path, 'reduced', target))
 
-            tab_data = Table(out_dict[save_ap], names=('BMJD(TDB)', 'exp_time', 'flux', 'flux_err', 'weight', 'esubd'))
+            tab_data = Table(out_dict['data'][save_ap], names=('BMJD(TDB)', 'exp_time', 'flux', 'flux_err', 'weight', 'esubd'))
             data_arrays['data'][filt] = tab_data
             data_arrays['header'][filt] = hdr
         t = Time(start, format='mjd', scale='tdb').ymdhms
@@ -517,13 +522,14 @@ class Observation:
                       INSTR=self.instrument,
                       RA=log.target_coords.ra.deg,
                       DEC=log.target_coords.dec.deg,
+                      TAR_AIRM=round(airmass.value, 5),
                       STD_STAR=self.standard,
                       STD_RUN=self.std_run,
-                      STD_AIRM=self.zeropoint['airmass'],
-                      ZP=", ".join([str(val) for val in list(self.zeropoint['mean'].values())]),
-                      ZP_E=", ".join([str(val) for val in list(self.zeropoint['err'].values())]),
-                      ATM_EX=", ".join([str(val) for val in list(self.atm_extinction['mean'].values())]),
-                      ATM_EX_E=", ".join([str(val) for val in list(self.atm_extinction['err'].values())]),
+                      STD_AIRM=round(self.zeropoint['airmass'], 5),
+                      ZP=", ".join([str(round(val, 5)) for val in list(self.zeropoint['mean'].values())]),
+                      ZP_E=", ".join([str(round(val, 5)) for val in list(self.zeropoint['err'].values())]),
+                      ATM_EX=", ".join([str(round(val, 5)) for val in list(self.atm_extinction['mean'].values())]),
+                      ATM_EX_E=", ".join([str(round(val, 5)) for val in list(self.atm_extinction['err'].values())]),
                       TIME_CAL=time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime()),
                       TIME_ID=int(time.time()*1000)
                       )
