@@ -28,6 +28,21 @@ class FITS:
         header = fits.Header()
         for key, value in header_dict.items():
             header.set(key, value)
+        header.comments['TARGET'] = "Name of target."
+        header.comments['RUN'] = "Imaging run of target."
+        header.comments['FILTERS'] = "Filters installed."
+        header.comments['NIGHT'] = "Date (UTC) at start of night."
+        header.comments['INSTR'] = "Instrument."
+        header.comments['RA'] = "Right ascension (deg)"
+        header.comments['DEC'] = "Declination (deg)"
+        header.comments['TAR_AIRM'] = "Mean airmass of target during run."
+        header.comments['STD_STAR'] = "Standard star used for calibration."
+        header.comments['STD_RUN'] = "Imaging run of standard star."
+        header.comments['STD_AIRM'] = "Mean airmass of standard during run."
+        header.comments['ZP'] = "Calculated zeropoints."
+        header.comments['ZP_E'] = "Uncertainty of calculated zeropoints."
+        header.comments['ATM_EX'] = "Atmospheric extinctions."
+        header.comments['ATM_EX_E'] = "Uncertainty of atmospheric extinctions."
         header.comments['TIME_CAL'] = "Time data was calibrated (UTC)."
         header.comments['TIME_ID'] = "Unique ID of calibration."
         primary_hdu = fits.PrimaryHDU(header=header)
@@ -36,6 +51,14 @@ class FITS:
             hdr = fits.Header()
             for key, value in data_dict['header'][filt].items():
                 hdr.set(key, value)
+            hdr.comments['FILTER'] = "Filter used."
+            hdr.comments['COMP_AP'] = "Aperture used for comparison star."
+            hdr.comments['FC_E'] = "Flux calibration fractional uncertainty."
+            hdr.comments['FC_MAG_E'] = "Flux calibration uncertainty (magnitudes)."
+            hdr.comments['ATM_EX'] = "Atmospheric extinction."
+            hdr.comments['ATM_EX_E'] = "Uncertainty in atmospheric extinction."
+            hdr.comments['ZP'] = "Zeropoint."
+            hdr.comments['ZP_E'] = "Uncertainty in zeropoint."
             BMJD = fits.Column(name='BMJD(TDB)', format='D', array=data_dict['data'][filt]['BMJD(TDB)'], unit='d')
             Exp_time = fits.Column(name='Exp_time', format='D', array=data_dict['data'][filt]['exp_time'], unit='d')
             Flux = fits.Column(name='Flux', format='D', array=data_dict['data'][filt]['flux'], unit='Jansky')
