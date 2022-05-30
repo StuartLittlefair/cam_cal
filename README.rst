@@ -46,7 +46,7 @@ First import the ``Observation`` class and create an instance.
     obs = Observation('ultracam') # or 'hipercam'
 
 Observations or imaging runs are then added with the ``add_observation`` method.
-These are given a name for reference, a list of hipercam logfiles, and and obs_type.
+These are given a name for reference, a list of hipercam pipeline logfiles, and and obs_type.
 An observation can have one of three obs_types: **'atm'**, **'std'**, or **'science'**.
 
 **atm** - The logfile from a reduction of a selection of stable stars over a decent airmass range.

@@ -540,4 +540,3 @@ class Observation:
         hdul.write(fname)
         if lcurve:
             hdul.to_lcurve(filepath=path)
-        # write_FITS(fname, data_arrays, header)
