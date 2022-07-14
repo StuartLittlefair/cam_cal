@@ -1,3 +1,4 @@
+from statistics import mean
 import numpy as np
 import pandas as pd
 from hipercam import hlog
@@ -48,6 +49,7 @@ class Observation:
                        'fname': 'string',
                        'Variability': 'string'}
         self.header_dict = dict()
+        self.comparison_mags = dict()
         # set instrument specific variables
         if self.instrument=='ultracam':
             self.tel_location = EarthLocation.of_site('La Silla Observatory')
@@ -112,7 +114,7 @@ class Observation:
         """
 
         if not obs_type:
-            obs_type = input("'science', 'std', or 'atm'? ")
+            obs_type = input("'science', 'std', 'fcal', or 'atm'? ")
         if not name:
             name = input('Enter name for observation: ')
         if not logfiles:
@@ -136,7 +138,7 @@ class Observation:
     
     def construct_dict(self, series):
         mags_dict = dict(mean={'us':0, 'gs':0, 'rs':0, 'is':0, 'zs':0},
-                         err={'us':0.02, 'gs':0.02, 'rs':0.02, 'is':0.02, 'zs':0.02})
+                         err={'us':0.022, 'gs':0.022, 'rs':0.022, 'is':0.022, 'zs':0.022})
         for filt in ['us', 'gs', 'rs', 'is', 'zs']:
             mags_dict['mean'][filt] = float(series[filt])
         return mags_dict
@@ -412,12 +414,33 @@ class Observation:
         diffFluxErr = ((t_ye / t_y)**2 + (c_ye / c_y)**2)**0.5 * np.abs(diffFlux)
         return target, comp, diffFlux, diffFluxErr, comp_snr
 
+    
+    def calc_comparison_mags(self, target_name, apertures=['2']):
+        log = Logfile(self.observations['fcal'][target_name]['logfiles'][0],
+                      self.instrument, self.tel_location)
+        cal_mags_filt = dict()
+        for filt in log.filters:
+            apertures = log.apnames[self.filt2ccd[filt]]
+            for aperture in apertures[1:]:
+                cal_mags = dict()
+                cal_mags_aper = dict()
+                comp_data, comp_mask = log.openData(self.filt2ccd[filt], aperture, save=False,
+                                                    mask=False)
+                comp_flux, comp_flux_err, mean_airmass = self.cal_comp(comp_data, filt, log.target_coords)
+                comp_mag, comp_mag_err = utils.flux_to_ABmag(comp_flux, comp_flux_err)
+                cal_mags['mean'], cal_mags['err'] = comp_mag, comp_mag_err
+                cal_mags_aper[aperture] = cal_mags
+            cal_mags_filt[filt] = cal_mags_aper
+            cal_mags_filt['airmass'] = mean_airmass
+        self.comparison_mags[target_name] = cal_mags_filt
 
-    def calibrate_science(self, target_name, comp_mag=None, comp_mag_err=None, eclipse=None, lcurve=False):
+
+    def calibrate_science(self, target_name, use_comp_mags=False, eclipse=None, lcurve=False):
         """
         Flux calibrate the selected science target using the calibrated comparison stars.
         eclipse width can be specified.
         """
+        #TODO: Implement selecting different aperture sizes/extraction types.
 
         data_arrays = dict()
         log = Logfile(self.observations['science'][target_name]['logfiles'][0],
@@ -432,9 +455,11 @@ class Observation:
         if eclipse:
             t1, t2, t3, t4 = times.contact_points(t_t, diffFlux)
             start, end = self.get_eclipse(t1, t4, width=eclipse)
+            t0 = (t1 + t4) / 2
 
         else:
             start, end = t_t[0]-0.0001, t_t[-1]+0.0001
+            t0 = None
 
         data_arrays = dict(data=dict(), header=dict())
         for filt in log.filters:
@@ -454,9 +479,13 @@ class Observation:
                 t_t, t_te, _, _, _, _ = target_data.T
 
                 
-                if comp_mag and comp_mag_err:
-                    comp_flux, comp_flux_err = utils.magAB_to_flux(comp_mag, comp_mag_err)
-                    airmass = 0.00
+                # if comp_mag and comp_mag_err:
+                #     comp_flux, comp_flux_err = utils.magAB_to_flux(comp_mag, comp_mag_err)
+                #     airmass = 0.00
+                if use_comp_mags:
+                    comp_flux, comp_flux_err = utils.magAB_to_flux(self.comparison_mags[target_name][filt][ap]['mean'],
+                                                                   self.comparison_mags[target_name][filt][ap]['err'])
+                    airmass = self.comparison_mags[target_name]['airmass']
                 else:
                     comp_flux, comp_flux_err, airmass = self.cal_comp(comp_data, filt, log.target_coords)
 
@@ -529,9 +558,12 @@ class Observation:
                       ZP_E=", ".join([str(round(val, 5)) for val in list(self.zeropoint['err'].values())]),
                       ATM_EX=", ".join([str(round(val, 5)) for val in list(self.atm_extinction['mean'].values())]),
                       ATM_EX_E=", ".join([str(round(val, 5)) for val in list(self.atm_extinction['err'].values())]),
+                      BC_CORR=bary_corr[0],
                       TIME_CAL=time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime()),
                       TIME_ID=int(time.time()*1000)
                       )
+        if t0:
+            header['ECLIP_T0'] = t0 + bary_corr[0]
         
         hdul = FITS.create(data_arrays, header)
         fname = f"{target}.fits"
