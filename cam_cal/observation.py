@@ -435,7 +435,7 @@ class Observation:
         self.comparison_mags[target_name] = cal_mags_filt
 
 
-    def calibrate_science(self, target_name, use_comp_mags=False, eclipse=None, lcurve=False):
+    def calibrate_science(self, target_name, savename=None, use_comp_mags=False, eclipse=None, lcurve=False):
         """
         Flux calibrate the selected science target using the calibrated comparison stars.
         eclipse width can be specified.
@@ -478,10 +478,6 @@ class Observation:
                 target_data, comp_data, diffFlux, diffFluxErr, comp_snr = self.diff_phot(log, ccd, ap, target_data_orig, target_mask)
                 t_t, t_te, _, _, _, _ = target_data.T
 
-                
-                # if comp_mag and comp_mag_err:
-                #     comp_flux, comp_flux_err = utils.magAB_to_flux(comp_mag, comp_mag_err)
-                #     airmass = 0.00
                 if use_comp_mags:
                     comp_flux, comp_flux_err = utils.magAB_to_flux(self.comparison_mags[target_name][filt][ap]['mean'],
                                                                    self.comparison_mags[target_name][filt][ap]['err'])
@@ -550,25 +546,26 @@ class Observation:
                       INSTR=self.instrument,
                       RA=log.target_coords.ra.deg,
                       DEC=log.target_coords.dec.deg,
-                      TAR_AIRM=round(airmass.value, 5),
+                      TAR_AIRM=round(airmass.value, 4),
                       STD_STAR=self.standard,
                       STD_RUN=self.std_run,
-                      STD_AIRM=round(self.zeropoint['airmass'], 5),
-                      ZP=", ".join([str(round(val, 5)) for val in list(self.zeropoint['mean'].values())]),
-                      ZP_E=", ".join([str(round(val, 5)) for val in list(self.zeropoint['err'].values())]),
-                      ATM_EX=", ".join([str(round(val, 5)) for val in list(self.atm_extinction['mean'].values())]),
-                      ATM_EX_E=", ".join([str(round(val, 5)) for val in list(self.atm_extinction['err'].values())]),
+                      STD_AIRM=round(self.zeropoint['airmass'], 4),
+                      ZP=", ".join([f"{val:.3f}" for val in list(self.zeropoint['mean'].values())]),
+                      ZP_E=", ".join([f"{val:.3f}" for val in list(self.zeropoint['err'].values())]),
+                      ATM_EX=", ".join([f"{val:.3f}" for val in list(self.atm_extinction['mean'].values())]),
+                      ATM_EX_E=", ".join([f"{val:.3f}" for val in list(self.atm_extinction['err'].values())]),
                       BC_CORR=bary_corr[0],
                       TIME_CAL=time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime()),
                       TIME_ID=int(time.time()*1000)
                       )
         if t0:
             header['ECLIP_T0'] = t0 + bary_corr[0]
-        
         hdul = FITS.create(data_arrays, header)
-        fname = f"{target}.fits"
         path = os.path.join(log.path, 'reduced', target)
+        if savename:
+            target = savename
+        fname = f"{target}.fits"
         fname = os.path.join(path, fname)
         hdul.write(fname)
         if lcurve:
-            hdul.to_lcurve(filepath=path)
+            hdul.to_lcurve(filepath=path, tname=target)
