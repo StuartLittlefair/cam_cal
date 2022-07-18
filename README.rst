@@ -47,7 +47,7 @@ First import the ``Observation`` class and create an instance.
 
 Observations or imaging runs are then added with the ``add_observation`` method.
 These are given a name for reference, a list of hipercam pipeline logfiles, and and obs_type.
-An observation can have one of three obs_types: **'atm'**, **'std'**, or **'science'**.
+An observation can have one of four obs_types: **'atm'**, **'std'**, **'fcal'**, or **'science'**.
 
 **atm** - The logfile from a reduction of a selection of stable stars over a decent airmass range.
 More than one logfile can be added for the one observation in case a target is observed more than once in a night (increasing the airmass range covered),
@@ -55,7 +55,9 @@ However, aperture numbering must correspond exactly between both observations so
 
 **std** - The logfile from the reduction of a flux standard.
 
-**science** - The logfile of the science data. The target must be aperture 1. It is wise to match the aperture radii with that of the flux standard in order to prevent systematic effects. 
+**fcal** -  An optional run on the science target with a large aperture for flux calibration purposes (must have matching comparison stars with the science run).
+
+**science** - The logfile of the science data. The target must be aperture 1. If not using an **fcal** run then it is wise to match the aperture radii with that of the flux standard in order to prevent systematic effects. 
 
 First add a run over a decent airmass range and fit the atmospheric extinction using the ``get_atm_ex`` method.
 
@@ -67,7 +69,7 @@ First add a run over a decent airmass range and fit the atmospheric extinction u
 Second, add a run on a flux standard. The calibrated magnitudes in the relevant filter system are required.
 These can be given either as a dictionary, or, if the standard is in the list of Gaia spectrophotometric standards,
 then either the name or an astropy Skycoord instance can be given.
-With a run added, the zeropoint can be calculated using ``get_zeropoint``.
+With a run added, the zeropoints can be calculated using ``get_zeropoint``.
 
 .. code-block:: python
 
