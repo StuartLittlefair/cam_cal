@@ -18,6 +18,10 @@ class Logfile:
         self.tel_location = tel_location
 
         self.run = self.getRun()
+        self.params = self.get_params()
+        self.run = self.params['run']
+        self.extraction = self.params['2'].split()[1]
+        self.r_aperture = self.params['2'].split()[2]
         self.path, self.fname = self.getPath()
         self.target, self.filters, self.target_coords = self.getTarget(target_coords, verbose)
         self.logf = hlog.Hlog.rascii(self.logfile)
@@ -34,6 +38,17 @@ class Logfile:
         mainpath = os.path.split(self.logfile)[0]
         fname = directory_tree[-1]
         return mainpath, fname
+
+
+    def get_params(self):
+        log_params = dict()
+        fptr = open(self.logfile)
+        for line in fptr:
+            eq = line.find('=')
+            if eq > -1:
+                log_params[line[:eq].strip('#').strip()] = line[eq+1:].split('#')[0].strip()
+        fptr.close()
+        return log_params
 
 
     def getRun(self):
@@ -90,9 +105,15 @@ class Logfile:
              return target_coords
 
 
-    def openData(self, ccd, ap, save=False, mask=True):
+    def openData(self, ccd, ap, save=False, mask=True, trim_start=1, trim_end=1):
         target = self.target.replace(' ', '_')
         filters = self.filters[::-1]
+
+        if trim_end == 0:
+            trim_end = None
+        else:
+            trim_end = -trim_end
+
         ccd = str(ccd)
         ap = str(ap)
         if ccd not in self.apnames.keys():
@@ -107,7 +128,13 @@ class Logfile:
         weights = np.ones(len(data.t))
         m = data.get_mask()
         zero_flux_mask = ma.getmask(ma.masked_not_equal(data.y, 0))
-        data_mask = np.logical_and(~m, zero_flux_mask)
+        data_mask = np.logical_and(~m, zero_flux_mask)[trim_start:trim_end]
+        data.t = data.t[trim_start:trim_end]
+        exp = exp[trim_start:trim_end]
+        data.y = data.y[trim_start:trim_end]
+        data.ye = data.ye[trim_start:trim_end]
+        weights = weights[trim_start:trim_end]
+
         if mask:
             out = np.column_stack([data.t[data_mask],
                                    exp[data_mask],
