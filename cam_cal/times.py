@@ -33,7 +33,7 @@ def get_ingress_egress(time, flux):
     """Roughly estimate times of ingress and egress."""
  
     # half_flux = (np.max(flux) + np.min(flux)) / 2
-    half_flux = (np.median(flux) + np.median(heapq.nsmallest(10, flux))) / 2
+    half_flux = (np.median(heapq.nlargest(10, flux)) + np.median(heapq.nsmallest(10, flux))) / 2
     a1 = flux.copy()
     idx1 = np.nanargmin(np.abs(a1 - half_flux))
     a1[idx1-4:idx1+5] = np.nan
