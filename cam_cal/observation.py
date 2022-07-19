@@ -235,6 +235,7 @@ class Observation:
                         data_new = log.openData(self.filt2ccd[filt], ap,
                                                 save=False,
                                                 mask=True)[0][:, [0, 2, 3]]
+                        data_new = data_new[(np.abs(data_new[:,1] - np.median(data_new[:,1])) / np.abs(np.std(data_new[:,1]))) < 5]
                         t = Time(data_new[:,0], format='mjd', scale='tdb')
                         # add airmass column
                         data_am = np.column_stack((self.airmass(t, log.target_coords), data_new))
@@ -415,27 +416,34 @@ class Observation:
         return target, comp, diffFlux, diffFluxErr, comp_snr
 
     
-    def calc_comparison_mags(self, target_name, apertures=['2']):
-        log = Logfile(self.observations['fcal'][target_name]['logfiles'][0],
-                      self.instrument, self.tel_location)
-        cal_mags_filt = dict()
-        for filt in log.filters:
-            apertures = log.apnames[self.filt2ccd[filt]]
-            for aperture in apertures[1:]:
-                cal_mags = dict()
+    def calc_comparison_mags(self, target_name=None):
+        if target_name:
+            if target_name not in self.observations['fcal'].keys():
+                raise ValueError(f"{target_name} is not an added 'fcal' observation.")
+            target_names = [target_name]
+        else:
+            target_names = self.observations['fcal'].keys()
+        for targ_name in target_names:
+            log = Logfile(self.observations['fcal'][targ_name]['logfiles'][0],
+                        self.instrument, self.tel_location)
+            cal_mags_filt = dict()
+            for filt in log.filters:
+                apertures = log.apnames[self.filt2ccd[filt]]
                 cal_mags_aper = dict()
-                comp_data, comp_mask = log.openData(self.filt2ccd[filt], aperture, save=False,
-                                                    mask=False)
-                comp_flux, comp_flux_err, mean_airmass = self.cal_comp(comp_data, filt, log.target_coords)
-                comp_mag, comp_mag_err = utils.flux_to_ABmag(comp_flux, comp_flux_err)
-                cal_mags['mean'], cal_mags['err'] = comp_mag, comp_mag_err
-                cal_mags_aper[aperture] = cal_mags
-            cal_mags_filt[filt] = cal_mags_aper
-            cal_mags_filt['airmass'] = mean_airmass
-        self.comparison_mags[target_name] = cal_mags_filt
+                for aperture in apertures[1:]:
+                    cal_mags = dict()
+                    comp_data, comp_mask = log.openData(self.filt2ccd[filt], aperture, save=False,
+                                                        mask=False)
+                    comp_flux, comp_flux_err, mean_airmass = self.cal_comp(comp_data, filt, log.target_coords)
+                    comp_mag, comp_mag_err = utils.flux_to_ABmag(comp_flux, comp_flux_err)
+                    cal_mags['mean'], cal_mags['err'] = comp_mag, comp_mag_err
+                    cal_mags_aper[aperture] = cal_mags
+                cal_mags_filt[filt] = cal_mags_aper
+                cal_mags_filt['airmass'] = mean_airmass
+            self.comparison_mags[targ_name] = cal_mags_filt
 
 
-    def calibrate_science(self, target_name, savename=None, use_comp_mags=False, eclipse=None, lcurve=False):
+    def calibrate_science(self, target_name, use_given_name=True, comp_mags=None, eclipse=None, lcurve=False):
         """
         Flux calibrate the selected science target using the calibrated comparison stars.
         eclipse width can be specified.
@@ -478,10 +486,10 @@ class Observation:
                 target_data, comp_data, diffFlux, diffFluxErr, comp_snr = self.diff_phot(log, ccd, ap, target_data_orig, target_mask)
                 t_t, t_te, _, _, _, _ = target_data.T
 
-                if use_comp_mags:
-                    comp_flux, comp_flux_err = utils.magAB_to_flux(self.comparison_mags[target_name][filt][ap]['mean'],
-                                                                   self.comparison_mags[target_name][filt][ap]['err'])
-                    airmass = self.comparison_mags[target_name]['airmass']
+                if comp_mags:
+                    comp_flux, comp_flux_err = utils.magAB_to_flux(self.comparison_mags[comp_mags][filt][ap]['mean'],
+                                                                   self.comparison_mags[comp_mags][filt][ap]['err'])
+                    airmass = self.comparison_mags[comp_mags]['airmass']
                 else:
                     comp_flux, comp_flux_err, airmass = self.cal_comp(comp_data, filt, log.target_coords)
 
@@ -562,8 +570,8 @@ class Observation:
             header['ECLIP_T0'] = t0 + bary_corr[0]
         hdul = FITS.create(data_arrays, header)
         path = os.path.join(log.path, 'reduced', target)
-        if savename:
-            target = savename
+        if use_given_name:
+            target = target_name
         fname = f"{target}.fits"
         fname = os.path.join(path, fname)
         hdul.write(fname)
