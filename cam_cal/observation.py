@@ -443,7 +443,7 @@ class Observation:
             self.comparison_mags[targ_name] = cal_mags_filt
 
 
-    def calibrate_science(self, target_name, use_given_name=True, comp_mags=None, eclipse=None, lcurve=False):
+    def calibrate_science(self, target_name, use_given_name=True, eclipse=None, lcurve=False):
         """
         Flux calibrate the selected science target using the calibrated comparison stars.
         eclipse width can be specified.
@@ -486,7 +486,7 @@ class Observation:
                 target_data, comp_data, diffFlux, diffFluxErr, comp_snr = self.diff_phot(log, ccd, ap, target_data_orig, target_mask)
                 t_t, t_te, _, _, _, _ = target_data.T
 
-                if comp_mags:
+                if self.comparison_mags:
                     comp_flux, comp_flux_err = utils.magAB_to_flux(self.comparison_mags[comp_mags][filt][ap]['mean'],
                                                                    self.comparison_mags[comp_mags][filt][ap]['err'])
                     airmass = self.comparison_mags[comp_mags]['airmass']
